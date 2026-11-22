@@ -17,7 +17,8 @@ struct EarnlyApp: App {
 extension AppModel {
     /// Debug launch arguments for deterministic UI tests and screenshots:
     /// `-earnly-skip-onboarding`, `-earnly-fixture <DevelopmentFixture>`, `-earnly-no-latency`,
-    /// `-earnly-fresh-defaults`. Release builds ignore them and use the disconnected service.
+    /// `-earnly-fresh-defaults`. Use `-earnly-demo` for the debug demo.
+    /// Release ignores these arguments and uses native Screen Time when available.
     @MainActor
     static func forLaunch(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppModel {
         let service = ScreenTimeServiceFactory.make(arguments: arguments)

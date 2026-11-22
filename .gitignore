@@ -3,3 +3,6 @@ build/
 DerivedData/
 xcuserdata/
 *.xcuserstate
+Config/Signing.local.xcconfig
+.swiftpm/
+.build/

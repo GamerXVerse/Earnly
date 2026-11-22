@@ -3,6 +3,26 @@ import Testing
 @testable import EarnlySystems
 
 struct NativeScreenTimeTests {
+    @Test func initialAllowancePreferenceCanBeSavedBeforeAuthorizationAndSelection() async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (system, coordinator) = try fixture.open()
+        try await coordinator.setUnconfiguredAllowance(.fifteen)
+        let dashboard = await system.dashboard()
+        #expect(dashboard.authorization == .notDetermined)
+        #expect(dashboard.policy.initialAllowance == .fifteen)
+        #expect(dashboard.policy.requiredQuestions == 10)
+        #expect(fixture.backend.registrationCount == 0)
+
+        let (reopened, restarted) = try fixture.open()
+        let saved = await reopened.dashboard().policy
+        try await restarted.configure(policy: saved, selection: fixture.selection)
+        #expect(try fixture.registration().minutes == 15)
+        await #expect(throws: LifecycleError.configurationLocked) {
+            try await restarted.setUnconfiguredAllowance(.ten)
+        }
+    }
+
     @Test func fullSecondAllowanceUsesNewGenerationAndOnePersistedCredit() async throws {
         let fixture = NativeFixture()
         defer { fixture.remove() }

@@ -1,0 +1,4 @@
+// The frontend's existing bundle identifier. Use registered IDs for signed builds.
+EARNLY_HOST_BUNDLE_ID = com.earnly.app
+EARNLY_APP_GROUP_ID =
+#include? "Signing.local.xcconfig"

@@ -18,7 +18,7 @@ struct ExamSelectionStep: View {
                         subtitle: exam.subtitle,
                         isSelected: model.profile.selectedExams.contains(exam)
                     ) {
-                        model.profile.toggle(exam)
+                        model.toggleExam(exam)
                     }
                 }
                 apCategory
@@ -64,7 +64,7 @@ struct ExamSelectionStep: View {
                             title: subject.rawValue,
                             isSelected: model.profile.selectedAPSubjects.contains(subject)
                         ) {
-                            model.profile.toggle(subject)
+                            model.toggleAPSubject(subject)
                         }
                     }
                 }

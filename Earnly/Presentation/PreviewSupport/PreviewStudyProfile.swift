@@ -1,8 +1,7 @@
 import Foundation
 import Observation
 
-/// Frontend-only exam selection. NOT persisted and not part of the screen-time policy.
-/// Maps to the systems `StudyProfile` / `ExamType` at integration (see docs/frontend-phase2.md).
+/// Exam choices presented by the frontend and mapped to the native study profile.
 enum PreviewExam: String, CaseIterable, Identifiable, Hashable {
     case sat, psat, act, ap
 
@@ -71,6 +70,10 @@ final class PreviewStudyProfile {
             selectedAPSubjects.insert(subject)
             selectedExams.insert(.ap)
         }
+    }
+
+    var hasConcreteExam: Bool {
+        !selectedExams.subtracting([.ap]).isEmpty || !selectedAPSubjects.isEmpty
     }
 
     /// Ordered selections for display.

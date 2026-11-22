@@ -3,7 +3,7 @@ import SwiftUI
 /// Why Earnly asks, plus the state-specific status and action. Shared by onboarding and Settings.
 struct AuthorizationExplainer: View {
     private let points: [(title: String, detail: String)] = [
-        ("You choose the apps", "Earnly manages only the apps, categories and websites you pick."),
+        ("You choose the apps", "Earnly manages the individual apps and websites you choose."),
         ("Apple does the monitoring", "Earnly uses Apple's Screen Time to track the entertainment time you configure, and to restrict your selected apps once your allowance is used."),
         ("You stay in control", "You set this up yourself, so you can also turn it off in iOS Settings at any time."),
     ]
@@ -43,7 +43,7 @@ struct AuthorizationStatusView: View {
                                 text: "Earnly stopped managing your apps. Turn access back on in iOS Settings, then choose your apps again.")
         case .unavailable:
             EarnlyStatusMessage(kind: .warning, title: "Screen Time isn't available",
-                                text: "This device can't offer Screen Time access right now, for example because Screen Time is restricted.")
+                                text: "Native monitoring needs a configured iPhone running iOS 17.4 or later.")
         case .failed(let message):
             EarnlyStatusMessage(kind: .warning, title: "Something went wrong", text: message)
         }

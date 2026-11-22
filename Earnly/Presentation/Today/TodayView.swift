@@ -92,6 +92,7 @@ struct TodayView: View {
         switch action {
         case .allowAccess, .reviewAccess: router.open(.permissions)
         case .chooseApps: router.open(.activities)
+        case .reviewMonitoring: router.open(.monitoring)
         case .startPractice, .resumePractice: router.startPractice()
         case .retryOperation, .retryRelease: Task { await model.retryPendingOperation() }
         }

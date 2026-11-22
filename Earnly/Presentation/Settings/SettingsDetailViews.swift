@@ -1,7 +1,5 @@
 import SwiftUI
 
-private let devNote = "Exam choices aren't saved yet. They will be stored with your study profile."
-
 struct ExamPreferencesView: View {
     @Environment(AppModel.self) private var model
 
@@ -10,17 +8,21 @@ struct ExamPreferencesView: View {
             Section {
                 ForEach([PreviewExam.sat, .psat, .act]) { exam in
                     checkRow(exam.title, subtitle: exam.subtitle, selected: model.profile.selectedExams.contains(exam)) {
-                        model.profile.toggle(exam)
+                        model.toggleExam(exam)
                     }
                 }
             }
             Section {
                 ForEach(PreviewAPSubject.allCases) { subject in
                     checkRow(subject.rawValue, subtitle: nil, selected: model.profile.selectedAPSubjects.contains(subject)) {
-                        model.profile.toggle(subject)
+                        model.toggleAPSubject(subject)
                     }
                 }
-            } header: { Text("AP exams") } footer: { Text(devNote) }
+            } header: {
+                Text("AP exams")
+            } footer: {
+                if let failure = model.studyProfileFailure { Text(failure.userMessage) }
+            }
         }
         .navigationTitle("Exams")
         .navigationBarTitleDisplayMode(.inline)
@@ -190,7 +192,7 @@ struct MonitoringControlsView: View {
 
     private var canDisable: Bool {
         if case .applying = model.change { return false }
-        return model.snapshot?.selection != nil
+        return model.snapshot?.selection != nil || model.snapshot?.stage == .failed(.cleanupPending)
     }
 
     @ViewBuilder
@@ -199,7 +201,7 @@ struct MonitoringControlsView: View {
         case .idle: EmptyView()
         case .applying(let text): Text("\(text)…").font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
         case .failed(let failure):
-            EarnlyStatusMessage(kind: .warning, title: "Restrictions are still on", text: failure.userMessage)
+            EarnlyStatusMessage(kind: .warning, title: "Couldn't finish turning off restrictions", text: failure.userMessage)
         }
     }
 }

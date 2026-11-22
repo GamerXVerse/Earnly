@@ -99,6 +99,12 @@ actor ScreenTimeCoordinator {
         try await drive()
     }
 
+    func setUnconfiguredAllowance(_ allowance: InitialAllowance) async throws {
+        try beginCommand()
+        defer { commandInProgress = false }
+        try await system.setUnconfiguredAllowance(allowance)
+    }
+
     func configure(policy: ScreenTimePolicy, selection: StoredActivitySelection) async throws {
         try beginCommand()
         defer { commandInProgress = false }

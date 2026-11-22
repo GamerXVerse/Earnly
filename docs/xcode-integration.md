@@ -1,56 +1,22 @@
 # Xcode integration
 
-The canonical package is the repository-root `Package.swift`. Both the package product and Swift module are named `EarnlySystems`. The package owns the source under `Earnly/{Core,Data,Domain,Infrastructure,Services}` and the systems test directories. Keep one copy of those sources. The production host imports the product and retains the frontend agent's existing app entry point and feature sources.
+Open the repository-root `Earnly.xcodeproj`. Its checked-in source of truth is `project.yml` together with `EarnlyExtensions/targets.yml`. After changing target membership, package dependencies, or build settings, run `xcodegen generate` from the repository root and commit the updated project. XcodeGen 2.46.0 generated the integration project.
 
-## XcodeGen host and extension targets
+The host and Device Activity Monitor link the repository-root `EarnlySystems` package product and import its module. XcodeGen excludes the systems source folders from direct host compilation. The `Earnly` scheme runs app and systems unit tests plus UI tests; the `EarnlySystems` package can also run independently with `swift test`. Choose `Earnly Demo` to run the debug UI with deterministic data. The ordinary `Earnly` scheme selects native Screen Time on a configured iPhone, and reports unavailable when the device or build cannot provide it. Release ignores the debug fixture launch arguments.
 
-Merge the following configuration into the existing frontend `project.yml`. Keep the existing frontend and test settings. Use the real registered host identifier in `EARNLY_HOST_BUNDLE_ID`. Set `EARNLY_APP_GROUP_ID` to a real registered App Group in the team's local signing configuration. The committed target fragment intentionally leaves these project-wide values to the host.
+| Target | Extension point | Principal class |
+| --- | --- | --- |
+| EarnlyDeviceActivityMonitor | `com.apple.deviceactivity.monitor-extension` | `$(PRODUCT_MODULE_NAME).EarnlyActivityMonitor` |
+| EarnlyShieldConfiguration | `com.apple.ManagedSettingsUI.shield-configuration-service` | `$(PRODUCT_MODULE_NAME).EarnlyShieldConfiguration` |
+| EarnlyShieldAction | `com.apple.ManagedSettings.shield-action-service` | `$(PRODUCT_MODULE_NAME).EarnlyShieldAction` |
 
-```yaml
-include:
-  - EarnlyExtensions/targets.yml
-packages:
-  EarnlySystems:
-    path: .
-targets:
-  Earnly:
-    sources:
-      - path: Earnly
-        excludes: [Core, Data, Domain, Infrastructure, Services]
-    dependencies:
-      - package: EarnlySystems
-        product: EarnlySystems
-      - target: EarnlyDeviceActivityMonitor
-        embed: true
-      - target: EarnlyShieldConfiguration
-        embed: true
-      - target: EarnlyShieldAction
-        embed: true
-    settings:
-      base:
-        CODE_SIGN_ENTITLEMENTS: EarnlyExtensions/FamilyControlsAppGroup.entitlements
-        INFOPLIST_KEY_EarnlyAppGroupIdentifier: $(EARNLY_APP_GROUP_ID)
-  EarnlyTests:
-    sources:
-      - path: EarnlyTests
-        excludes: [Domain, Infrastructure, Services]
-```
+The host embeds all three extensions in `PlugIns`. Each extension uses `APPLICATION_EXTENSION_API_ONLY=YES`, the iOS 17.0 deployment target, and the host's build and marketing versions. The native allowance path requires iOS 17.4 or later. Recent OS versions can opt into the direct shield-open experiment, as described below.
 
-Set the host's `PRODUCT_BUNDLE_IDENTIFIER` and `EARNLY_HOST_BUNDLE_ID` to the same real identifier. Place `EARNLY_HOST_BUNDLE_ID` and `EARNLY_APP_GROUP_ID` at project scope so the fragment's bundle and Info.plist settings resolve for every extension. For a generated host Info.plist, confirm that the final product includes `EarnlyAppGroupIdentifier`. If Xcode drops that custom generated key, use an explicit host Info.plist entry or inject the configuration through the host's composition root. Regenerate with `xcodegen generate`. The host scheme embeds all three products under `PlugIns`. The standalone `EarnlySystems` scheme runs systems tests.
+## Configure a signed iPhone build
 
-| Target | Extension point | Principal class | Dependencies |
-| --- | --- | --- | --- |
-| EarnlyDeviceActivityMonitor | `com.apple.deviceactivity.monitor-extension` | `$(PRODUCT_MODULE_NAME).EarnlyActivityMonitor` | EarnlySystems, DeviceActivity, FamilyControls, ManagedSettings |
-| EarnlyShieldConfiguration | `com.apple.ManagedSettingsUI.shield-configuration-service` | `$(PRODUCT_MODULE_NAME).EarnlyShieldConfiguration` | ManagedSettingsUI, ManagedSettings, UIKit |
-| EarnlyShieldAction | `com.apple.ManagedSettings.shield-action-service` | `$(PRODUCT_MODULE_NAME).EarnlyShieldAction` | ManagedSettings |
+1. Create `Config/Signing.local.xcconfig` in your checkout. That file is ignored. Set `DEVELOPMENT_TEAM`, `EARNLY_HOST_BUNDLE_ID`, and `EARNLY_APP_GROUP_ID` to the values from the team's actual developer account. The tracked `Config/Earnly.xcconfig` includes it optionally. The default host identifier comes from the frontend project and the shared group defaults to empty.
+2. Register the host identifier and its extension identifiers, which append `.DeviceActivityMonitor`, `.ShieldConfiguration`, and `.ShieldAction`. Configure Family Controls on all four. Register the real App Group and assign it to the host and Device Activity Monitor. The build substitutes the same value into the iPhoneOS entitlement and the two Info.plists. Verify Xcode's selected team and profiles for all four targets before installation.
+3. Select the `Earnly` scheme and a signed physical iPhone running iOS 17.4 or later. Use the [device acceptance procedure](device-test-plan.md). The Apple Developer Account Holder must request Family Controls distribution permission separately for the app and each Screen Time extension. Refresh provisioning profiles and inspect the resulting app and embedded extension signatures before distribution. [Family Controls configuration](https://developer.apple.com/documentation/xcode/configuring-family-controls) · [Distribution entitlement requests](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement) · [App Groups](https://developer.apple.com/documentation/xcode/configuring-app-groups)
+4. The shield defaults to **Close** and instructions for returning manually. To test direct opening on iOS 26.5 or later, set `EarnlyEnableDirectShieldOpen` to true in both shield Info.plists in a device experiment. Keep the values matched so the label agrees with the action. The Shield Configuration target can use the original mark from an image set named `EarnlyShieldMark` once the extension-ready brand export is available.
 
-The extension Info.plists are included. Each extension uses `APPLICATION_EXTENSION_API_ONLY=YES`, iOS 17.0 and `SKIP_INSTALL=YES`. Match the host's marketing version and build number and sign extensions with the same team as the app. A Device Activity Report target is optional and has no current consumer.
-
-## Signing and metadata
-
-1. Register the real host and the three real extension bundle IDs. The fragment uses suffixes `.DeviceActivityMonitor`, `.ShieldConfiguration`, and `.ShieldAction`. Change a suffix if it conflicts with registered project IDs, and ensure the corresponding provisioning profile matches.
-2. Configure Family Controls on the app and every extension. Host and Device Activity Monitor also share the registered App Group. Use the same group value in the host and monitor Info configuration and in both signed entitlements. Shield Configuration and Shield Action use static policy and require only Family Controls.
-3. Use development provisioning for the signed physical-device trial. For distribution, the Apple Developer Account Holder must request the Family Controls entitlement separately for the app and every Screen Time extension, then refresh profiles and verify the resulting signatures. Inspect the archived host and each embedded extension with `codesign -d --entitlements - <bundle-path>`. [Apple Family Controls configuration](https://developer.apple.com/documentation/xcode/configuring-family-controls) · [Distribution entitlement requests](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement) · [App Groups](https://developer.apple.com/documentation/xcode/configuring-app-groups)
-4. Supply the original Earnly mark as an image set named `EarnlyShieldMark` in the Shield Configuration target when the branding owner provides the appropriate export. The current shield uses the system layout with no icon if this asset is absent. For the signed direct-open experiment only, set the Boolean `EarnlyEnableDirectShieldOpen` in **both** shield Info.plists. Keep the values matched so the action and label agree. Leave it off in distribution builds until verified on individual authorization.
-
-Development simulation still runs from the Swift package and needs no capabilities. Native construction fails with `ScreenTimePersistenceError.containerUnavailable` when the group is inaccessible.
+Device entitlements are applied only for the iPhoneOS SDK. The simulator and host package tests therefore run without developer provisioning. Use `CODE_SIGNING_ALLOWED=NO` only for compilation verification on a generic iOS destination; install the signed product for the device acceptance tests.

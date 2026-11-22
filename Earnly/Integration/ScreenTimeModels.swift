@@ -44,7 +44,7 @@ struct PolicySummary: Equatable {
 }
 
 enum RestrictionFailureKind: String, Equatable {
-    case monitoring, shield, thresholdBeforeRelease
+    case monitoring, shield, thresholdBeforeRelease, monitoringInterrupted, cleanupPending
 }
 
 /// Mirrors `RestrictionState` without session identifiers (those live in the snapshot).

@@ -9,7 +9,7 @@ targetTemplates:
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_VERSION: "6.0"
-        CODE_SIGN_ENTITLEMENTS: EarnlyExtensions/FamilyControls.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControls.entitlements
 
 targets:
   EarnlyDeviceActivityMonitor:
@@ -24,7 +24,7 @@ targets:
       base:
         INFOPLIST_FILE: EarnlyExtensions/DeviceActivityMonitor/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).DeviceActivityMonitor
-        CODE_SIGN_ENTITLEMENTS: EarnlyExtensions/FamilyControlsAppGroup.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
 
   EarnlyShieldConfiguration:
     templates: [EarnlyScreenTimeExtension]

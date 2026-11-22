@@ -73,6 +73,17 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         try commit(next)
     }
 
+    /// Set the user's preferred initial duration before any activities are configured.
+    func setUnconfiguredAllowance(_ allowance: InitialAllowance) throws {
+        guard state.lifecycle.stage.cycle == nil else { throw LifecycleError.configurationLocked }
+        var next = state
+        next.policy = try ScreenTimePolicy(
+            initialAllowance: allowance, requiredQuestions: state.policy.requiredQuestions,
+            rewardedMinutes: state.policy.rewardedMinutes, isEnabled: state.policy.isEnabled
+        )
+        try commit(next)
+    }
+
     /// Configure a fresh initial allowance. Reset the previous configuration before replacing it.
     @discardableResult
     public func configure(policy: ScreenTimePolicy, selection: ActivitySelection) throws -> UsageCycle {

@@ -51,7 +51,7 @@ struct SessionCompleteView: View {
             .scrollBounceBehavior(.basedOnSize)
 
             VStack(spacing: EarnlySpacing.xs) {
-                if case .releaseFailed = outcome {
+                if canRetryOperation(outcome) {
                     EarnlyButton(title: model.isRetrying ? "Trying…" : "Try again") {
                         Task { await model.retryPendingOperation() }
                     }
@@ -89,7 +89,7 @@ struct SessionCompleteView: View {
 
     private func minutes(_ outcome: AppModel.RewardOutcome?) -> Int? {
         switch outcome {
-        case .restoring(let m), .releaseFailed(let m), .released(let m): return m
+        case .restoring(let m), .releaseFailed(let m), .setupFailed(let m, _), .released(let m): return m
         case .recording: return flow.session?.rewardMinutes
         case nil: return nil
         }
@@ -100,8 +100,16 @@ struct SessionCompleteView: View {
         case .recording: return "Recording your time."
         case .restoring: return "Restoring access. Your selected apps stay restricted until Earnly confirms it."
         case .releaseFailed: return "Access wasn't restored."
+        case .setupFailed: return "Screen Time setup needs attention."
         case .released: return "Your selected apps are available again."
         case nil: return model.rewardFailure == nil ? "" : "Your time hasn't been recorded yet."
+        }
+    }
+
+    private func canRetryOperation(_ outcome: AppModel.RewardOutcome?) -> Bool {
+        switch outcome {
+        case .releaseFailed, .setupFailed(_, true): true
+        default: false
         }
     }
 
@@ -111,6 +119,10 @@ struct SessionCompleteView: View {
         case .releaseFailed:
             EarnlyStatusMessage(kind: .warning, title: "Your reward is saved",
                                 text: "Earnly couldn't lift the restriction. You don't need to answer the questions again. Try again, and it won't add the time twice.")
+        case .setupFailed(_, let retryable):
+            EarnlyStatusMessage(kind: .warning, title: "Your reward is saved",
+                                text: retryable ? "Try again to finish your Screen Time setup."
+                                : "Review monitoring in Settings to restore access.")
         case nil:
             if let failure = model.rewardFailure {
                 EarnlyStatusMessage(kind: .warning, title: "Couldn't record your time", text: failure.userMessage)

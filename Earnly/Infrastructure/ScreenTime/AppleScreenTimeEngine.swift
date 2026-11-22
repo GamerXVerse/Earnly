@@ -43,6 +43,10 @@ public final class AppleScreenTimeEngine {
         return try backend.selection(from: record)
     }
 
+    public func setUnconfiguredAllowance(_ allowance: InitialAllowance) async throws {
+        try await coordinator.setUnconfiguredAllowance(allowance)
+    }
+
     public func configure(policy: ScreenTimePolicy, selection: FamilyActivitySelection) async throws {
         guard #available(iOS 17.4, *) else { throw ScreenTimeServiceError.unsupportedOS }
         let stored = try backend.selectionRecord(selection)

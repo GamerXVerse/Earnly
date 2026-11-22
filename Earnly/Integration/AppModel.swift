@@ -73,18 +73,26 @@ final class AppModel {
         return policy.allowanceMinutes
     }
     @ObservationIgnored private var pendingAllowance: Int?
+    @ObservationIgnored private var profileLoaded = false
+    @ObservationIgnored private var profileSave: Task<Void, Never>?
+    private(set) var studyProfileFailure: ServiceFailure?
 
     enum RewardOutcome: Equatable {
         case recording
         case restoring(minutes: Int)
         case releaseFailed(minutes: Int)
+        case setupFailed(minutes: Int, retryable: Bool)
         case released(minutes: Int)
     }
 
     var rewardOutcome: RewardOutcome? {
         guard let s = snapshot else { return nil }
         if let reward = s.pendingReward {
-            return reward.releaseFailed ? .releaseFailed(minutes: reward.minutes) : .restoring(minutes: reward.minutes)
+            if reward.releaseFailed { return .releaseFailed(minutes: reward.minutes) }
+            if case let .failed(kind) = s.stage {
+                return .setupFailed(minutes: reward.minutes, retryable: kind != .monitoringInterrupted && kind != .cleanupPending)
+            }
+            return .restoring(minutes: reward.minutes)
         }
         if s.stage == .rewardPending, s.activeSession?.isComplete == true { return .recording }
         if s.stage == .available, let minutes = s.releasedRewardMinutes { return .released(minutes: minutes) }
@@ -95,12 +103,16 @@ final class AppModel {
 
     /// Call at launch and on every foreground entry.
     func reconcile() async {
+        if !profileLoaded {
+            profileLoaded = true
+            if let stored = await service.loadStudyProfile(), profileSave == nil { profile = stored }
+        }
         do {
             snapshot = try await service.reconcile()
             loadFailure = nil
         } catch let failure as ServiceFailure {
             loadFailure = failure
-            if snapshot == nil { snapshot = try? await service.snapshot() }
+            await refreshSnapshot()
         } catch {
             loadFailure = .unexpected(error.localizedDescription)
         }
@@ -234,6 +246,30 @@ final class AppModel {
             await refreshSnapshot()
         } catch {
             rewardFailure = .unexpected(error.localizedDescription)
+        }
+    }
+
+    func toggleExam(_ exam: PreviewExam) {
+        profile.toggle(exam)
+        persistProfile()
+    }
+
+    func toggleAPSubject(_ subject: PreviewAPSubject) {
+        profile.toggle(subject)
+        persistProfile()
+    }
+
+    private func persistProfile() {
+        let saved = PreviewStudyProfile(selectedExams: profile.selectedExams, selectedAPSubjects: profile.selectedAPSubjects)
+        let previous = profileSave
+        profileSave = Task {
+            await previous?.value
+            do {
+                try await service.saveStudyProfile(saved)
+                studyProfileFailure = nil
+            } catch {
+                studyProfileFailure = .from(error)
+            }
         }
     }
 

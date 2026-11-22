@@ -1,4 +1,12 @@
 name: Earnly
+include:
+  - EarnlyExtensions/targets.yml
+packages:
+  EarnlySystems:
+    path: .
+configFiles:
+  Debug: Config/Earnly.xcconfig
+  Release: Config/Earnly.xcconfig
 options:
   bundleIdPrefix: com.earnly
   deploymentTarget:
@@ -15,11 +23,24 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Earnly
+      - path: Earnly
+        excludes: [Core, Data, Domain, Infrastructure, Services]
+    dependencies:
+      - package: EarnlySystems
+        product: EarnlySystems
+      - target: EarnlyDeviceActivityMonitor
+        embed: true
+      - target: EarnlyShieldConfiguration
+        embed: true
+      - target: EarnlyShieldAction
+        embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.earnly.app
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID)
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Config/Earnly-Info.plist
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
+        SUPPORTS_MACCATALYST: NO
         INFOPLIST_KEY_CFBundleDisplayName: Earnly
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
@@ -33,10 +54,12 @@ targets:
       - EarnlyTests
     dependencies:
       - target: Earnly
+      - package: EarnlySystems
+        product: EarnlySystems
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.earnly.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).tests
   EarnlyUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -47,7 +70,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.earnly.app.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).uitests
 schemes:
   Earnly:
     build:
@@ -57,3 +80,11 @@ schemes:
       targets:
         - EarnlyTests
         - EarnlyUITests
+  Earnly Demo:
+    build:
+      targets:
+        Earnly: all
+    run:
+      config: Debug
+      commandLineArguments:
+        "-earnly-demo": true

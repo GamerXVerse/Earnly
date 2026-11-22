@@ -39,31 +39,7 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B5B5BD86F8F3E798C6435C05"
-               BuildableName = "EarnlyTests.xctest"
-               BlueprintName = "EarnlyTests"
-               ReferencedContainer = "container:Earnly.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FC8F0C760CEBD938D292E5D9"
-               BuildableName = "EarnlyUITests.xctest"
-               BlueprintName = "EarnlyUITests"
-               ReferencedContainer = "container:Earnly.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -85,6 +61,12 @@
             ReferencedContainer = "container:Earnly.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-earnly-demo"
+            isEnabled = "YES">
+         </CommandLineArgument>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

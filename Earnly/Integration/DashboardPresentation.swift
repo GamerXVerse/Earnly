@@ -19,7 +19,7 @@ struct DashboardPresentation: Equatable {
     enum Tone: Equatable { case neutral, success, warning }
 
     enum Action: Equatable {
-        case allowAccess, reviewAccess, chooseApps
+        case allowAccess, reviewAccess, chooseApps, reviewMonitoring
         case startPractice, resumePractice
         case retryOperation, retryRelease
     }
@@ -55,6 +55,12 @@ struct DashboardPresentation: Equatable {
         }
         let policy = s.policy
 
+        if s.stage == .failed(.cleanupPending) {
+            return .init(state: .restrictionFailed, title: "Finishing Screen Time cleanup",
+                         detail: "Earnly is turning off its monitoring and restrictions.",
+                         tone: .warning, primary: (.retryOperation, "Try again"))
+        }
+
         switch s.authorization {
         case .notDetermined:
             return .init(
@@ -74,12 +80,18 @@ struct DashboardPresentation: Equatable {
         case .approved: break
         }
 
+        if s.stage == .failed(.monitoringInterrupted) {
+            return .init(state: .monitoringFailed, title: "Monitoring was interrupted",
+                         detail: "Turn off restrictions in Settings, then choose your activities again. Earned rewards are kept.",
+                         tone: .warning, primary: (.reviewMonitoring, "Review monitoring"))
+        }
+
         if s.stage == .selectionRequired || s.stage == .unconfigured || s.selection == nil {
             return .init(
                 state: .selectionRequired, title: "Choose the apps to manage",
                 detail: s.stage == .selectionRequired
                     ? "Your earlier selection is no longer valid. Choose again to resume monitoring."
-                    : "Earnly isn't monitoring anything until you pick apps, categories or websites.",
+                    : "Choose individual apps or websites before starting monitoring.",
                 tone: .warning, primary: (.chooseApps, "Choose apps"))
         }
 
@@ -92,6 +104,11 @@ struct DashboardPresentation: Equatable {
                     state: .releaseFailed, title: "Time earned. Access wasn't restored.",
                     detail: "Your reward is saved. You don't need to answer the questions again.",
                     tone: .warning, hero: hero, primary: (.retryRelease, "Try again"))
+            }
+            if case .failed = s.stage {
+                return .init(state: .monitoringFailed, title: "Time earned. Setup needs attention.",
+                             detail: "Your reward is saved. Try again to restore access.",
+                             tone: .warning, hero: hero, primary: (.retryOperation, "Try again"))
             }
             return .init(
                 state: .restoringAccess, title: "Time earned. Restoring access.",

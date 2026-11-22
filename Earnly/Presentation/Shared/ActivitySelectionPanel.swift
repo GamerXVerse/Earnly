@@ -81,7 +81,9 @@ struct ActivitySelectionPanel: View {
     }
 
     private var caution: some View {
-        Text("Choosing a whole category can include many apps. Pick only what pulls you away from studying.")
+        Text(model.isSimulated
+             ? "Choosing a whole category can include many apps. Pick only what pulls you away from studying."
+             : "Choose individual apps or websites. Earnly needs to verify that your selection leaves Earnly accessible.")
             .font(EarnlyFont.caption).foregroundStyle(EarnlyColor.inkSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -101,7 +103,7 @@ struct ActivitySelectionPanel: View {
             Text("No changes made.").font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
         case .empty:
             EarnlyStatusMessage(kind: .warning, title: "Nothing selected",
-                                text: "Your previous setup is unchanged. Choose at least one app, category or website.")
+                                text: "Your previous setup is unchanged. Choose at least one activity.")
         case .failed(let failure):
             EarnlyStatusMessage(kind: .warning, title: "Selection not saved", text: failure.userMessage)
         case .idle, .applying:

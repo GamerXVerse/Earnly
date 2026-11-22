@@ -103,7 +103,7 @@ Phase 1 Swift method signatures remain intact. `RestrictionFailure.monitoringInt
 
 ### Phase 2A adapter handoff
 
-The committed frontend exposes `ScreenTimeServicing` and a `ScreenTimeServiceFactory` under `Earnly/Integration`. Add the production adapter at that boundary and leave views and navigation on the presentation types. The adapter is main-actor isolated. It maps values and handles the system picker. The engine owns credit validation, monitoring, shielding and recovery.
+The integrated frontend implements `ScreenTimeServicing` with the main-actor `NativeScreenTimeService` adapter under `Earnly/Integration`. Views and navigation continue to use their presentation types. The adapter maps values and hosts the system picker. The engine owns credit validation, monitoring, shielding and recovery.
 
 | Phase 2A method or field | Native mapping |
 | --- | --- |
@@ -116,4 +116,4 @@ The committed frontend exposes `ScreenTimeServicing` and a `ScreenTimeServiceFac
 | `cycleID`, `pendingReward`, `releasedRewardMinutes` | Read `await engine.system.currentCycle()` and match its reward session ID to the ledger. Use `activatedAt` for release, and indicate a release failure only when `NativeDashboard.rewardReleasePending` is true and the restriction reports a shield failure. |
 | `rewardHistory`, `thresholdEvidenceMinutes`, `remainingMinutes` | Combine ledger credits with their persisted sessions for accuracy and totals. Map the threshold lower bound separately, and keep remaining minutes nil. |
 
-When mirroring `.available`, require `NativeMonitoringStatus.registered` before showing an active allowance. Add the monitoring interruption case to the frontend mirror and map shared persistence faults and unsafe native selection explicitly. In the factory, retain the development adapter for deterministic tests and choose the native engine only when the build has real App Group configuration. Until the production adapter is selected, the committed Phase 2A Release host still reports disconnected Screen Time.
+When mirroring `.available`, require `NativeMonitoringStatus.registered` before showing an active allowance. Add the monitoring interruption case to the frontend mirror and map shared persistence faults and unsafe native selection explicitly. The factory selects native Screen Time for a configured iPhone on a supported OS. The `Earnly Demo` Debug scheme enables the deterministic adapter, and Release ignores its launch arguments. The native adapter also persists exam preferences and can save the preferred initial allowance before any activity selection is registered.

@@ -93,8 +93,10 @@ struct OnboardingFlowView: View {
                 EarnlyButton(title: "Get started", trailingSymbol: "arrow.right") { move { flow.next() } }
             case 2:
                 EarnlyButton(title: "Continue") { move { flow.next() } }
-                    .disabled(model.profile.selectedExams.isEmpty)
-                if model.profile.selectedExams.isEmpty {
+                    .disabled(!model.profile.hasConcreteExam)
+                if let failure = model.studyProfileFailure {
+                    EarnlyStatusMessage(kind: .warning, text: failure.userMessage)
+                } else if !model.profile.hasConcreteExam {
                     Text("Select at least one exam to continue.")
                         .font(EarnlyFont.caption).foregroundStyle(EarnlyColor.inkSecondary)
                 }
