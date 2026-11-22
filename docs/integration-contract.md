@@ -100,3 +100,20 @@ let state = await engine.dashboard()
 ```
 
 Phase 1 Swift method signatures remain intact. `RestrictionFailure.monitoringInterrupted` is an additive case that requires updating exhaustive switches. A paused completed session can appear in `activeSession` with an unconfigured restriction and disabled policy; use the dashboard's policy and monitoring fields to decide whether credit activation is possible. Extended `ScreenTimeServiceError` and `ScreenTimePersistenceError` distinguish unsafe scope, unsupported OS, operation overlap, monitoring/shield failures, and shared-state recovery faults.
+
+### Phase 2A adapter handoff
+
+The committed frontend exposes `ScreenTimeServicing` and a `ScreenTimeServiceFactory` under `Earnly/Integration`. Add the production adapter at that boundary and leave views and navigation on the presentation types. The adapter is main-actor isolated. It maps values and handles the system picker. The engine owns credit validation, monitoring, shielding and recovery.
+
+| Phase 2A method or field | Native mapping |
+| --- | --- |
+| `snapshot()`, `reconcile()` | Map `await engine.dashboard()`. For reconciliation, run `try await engine.appDidBecomeActive()` first. Refresh the snapshot after a mutating command fails because its credit or cleanup intent may already be persisted. |
+| `requestAuthorization()` | Call `try await engine.requestAuthorization()` and map the refreshed dashboard. |
+| `makeSelectionPicker`, `makeSelectionLabels` | Keep the editable `FamilyActivitySelection` in the adapter. Use a temporary opaque UUID for a confirmed draft and verify it on `applySelection`. Map saved counts and IDs from the dashboard. Render supported labels from Apple tokens inside the adapter. Discard cancelled drafts. |
+| `applySelection`, `updateAllowance` | Call `engine.configure(policy:selection:)` with the confirmed draft or `engine.pickerSelection()` for a settings change. Validate the allowance with `InitialAllowance(rawValue:)` and carry forward the saved practice and reward values. |
+| `disableRestrictions`, `retryPendingOperation` | Call `engine.disable()` and `engine.retry()`. Surface cleanup pending and interrupted monitoring separately so the user can either retry cleanup or explicitly reconfigure. |
+| `startPractice`, `submitAnswer`, `grantReward` | Use `engine.system` for session operations and `engine.finishPractice(sessionID:)` for rewards. Map each returned session's questions, attempts, and completion. |
+| `cycleID`, `pendingReward`, `releasedRewardMinutes` | Read `await engine.system.currentCycle()` and match its reward session ID to the ledger. Use `activatedAt` for release, and indicate a release failure only when `NativeDashboard.rewardReleasePending` is true and the restriction reports a shield failure. |
+| `rewardHistory`, `thresholdEvidenceMinutes`, `remainingMinutes` | Combine ledger credits with their persisted sessions for accuracy and totals. Map the threshold lower bound separately, and keep remaining minutes nil. |
+
+When mirroring `.available`, require `NativeMonitoringStatus.registered` before showing an active allowance. Add the monitoring interruption case to the frontend mirror and map shared persistence faults and unsafe native selection explicitly. In the factory, retain the development adapter for deterministic tests and choose the native engine only when the build has real App Group configuration. Until the production adapter is selected, the committed Phase 2A Release host still reports disconnected Screen Time.

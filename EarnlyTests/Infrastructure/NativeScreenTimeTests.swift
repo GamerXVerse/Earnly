@@ -51,6 +51,9 @@ struct NativeScreenTimeTests {
         try await restarted.activate()
         fixture.backend.fail(.clear)
         await #expect(throws: ScreenTimeServiceError.shieldingFailed) { try await restarted.retry() }
+        let nativeDashboard = await restarted.dashboard()
+        #expect(nativeDashboard.rewardReleasePending)
+        #expect(nativeDashboard.dashboard.restriction == .failed(.shield))
         let installCount = fixture.backend.installCount
         #expect(try fixture.registration().cycleID == generation)
         #expect(await restored.rewardLedger().transactions[session.id]?.activatedAt == nil)

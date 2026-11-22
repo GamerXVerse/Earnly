@@ -13,6 +13,8 @@ public enum NativeMonitoringStatus: Equatable, Sendable {
 public struct NativeDashboard: Equatable, Sendable {
     public let dashboard: DashboardSnapshot
     public let monitoring: NativeMonitoringStatus
+    /// A credited reward is at the release step, including when the latest release failed.
+    public let rewardReleasePending: Bool
 }
 
 /// The coordinator is the only host writer for platform operations. The App Group lock
@@ -60,7 +62,13 @@ actor ScreenTimeCoordinator {
         } else {
             monitoring = .unavailable
         }
-        return NativeDashboard(dashboard: dashboard, monitoring: monitoring)
+        let rewardReleasePending: Bool
+        if let cycle = await system.currentCycle(), cycle.rewardSessionID != nil {
+            rewardReleasePending = await system.isAwaitingAccessRelease(cycleID: cycle.id)
+        } else {
+            rewardReleasePending = false
+        }
+        return NativeDashboard(dashboard: dashboard, monitoring: monitoring, rewardReleasePending: rewardReleasePending)
     }
 
     func requestAuthorization() async throws -> AuthorizationState {
