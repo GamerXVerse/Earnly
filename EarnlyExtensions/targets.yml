@@ -1,0 +1,47 @@
+targetTemplates:
+  EarnlyScreenTimeExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    settings:
+      base:
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_ENTITLEMENTS: EarnlyExtensions/FamilyControls.entitlements
+
+targets:
+  EarnlyDeviceActivityMonitor:
+    templates: [EarnlyScreenTimeExtension]
+    sources:
+      - path: DeviceActivityMonitor
+        excludes: [Info.plist]
+    dependencies:
+      - package: EarnlySystems
+        product: EarnlySystems
+    settings:
+      base:
+        INFOPLIST_FILE: EarnlyExtensions/DeviceActivityMonitor/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).DeviceActivityMonitor
+        CODE_SIGN_ENTITLEMENTS: EarnlyExtensions/FamilyControlsAppGroup.entitlements
+
+  EarnlyShieldConfiguration:
+    templates: [EarnlyScreenTimeExtension]
+    sources:
+      - path: ShieldConfiguration
+        excludes: [Info.plist]
+    settings:
+      base:
+        INFOPLIST_FILE: EarnlyExtensions/ShieldConfiguration/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).ShieldConfiguration
+
+  EarnlyShieldAction:
+    templates: [EarnlyScreenTimeExtension]
+    sources:
+      - path: ShieldAction
+        excludes: [Info.plist]
+    settings:
+      base:
+        INFOPLIST_FILE: EarnlyExtensions/ShieldAction/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).ShieldAction
