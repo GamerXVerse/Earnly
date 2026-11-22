@@ -146,12 +146,14 @@ struct OnboardingFlowView: View {
 struct OnboardingPage<Content: View>: View {
     let title: String
     var subtitle: String? = nil
+    var overline: String? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: EarnlySpacing.xl) {
                 VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
+                    if let overline { Text(overline).earnlyOverline().foregroundStyle(EarnlyColor.brandText) }
                     Text(title)
                         .font(EarnlyFont.titleMedium)
                         .foregroundStyle(EarnlyColor.ink)

@@ -12,12 +12,16 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
+                    if state.state == .restricted {
+                        RestrictedBlock(state: state).padding(.top, EarnlySpacing.xl)
+                    }
                     if let hero = state.hero {
                         HeroBlock(hero: hero, progress: state.progressFraction, tone: state.tone)
                             .padding(.top, EarnlySpacing.xl)
                     }
-                    statusBlock(state)
-                        .padding(.top, EarnlySpacing.lg)
+                    if state.state != .restricted {
+                        statusBlock(state).padding(.top, EarnlySpacing.lg)
+                    }
                     if let primary = state.primary {
                         EarnlyButton(title: primary.title, trailingSymbol: symbol(for: primary.action)) {
                             perform(primary.action)
@@ -99,6 +103,29 @@ struct TodayView: View {
             content()
         }
         .padding(.top, EarnlySpacing.xs)
+    }
+}
+
+/// Restricted state: brand mark, headline, facts, then the practice action.
+private struct RestrictedBlock: View {
+    let state: DashboardPresentation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: EarnlySpacing.md) {
+            EarnlyLogo(size: 48)
+            Text(state.title).font(EarnlyFont.titleMedium).foregroundStyle(EarnlyColor.ink)
+                .accessibilityAddTraits(.isHeader)
+            Text(state.detail).font(EarnlyFont.body).foregroundStyle(EarnlyColor.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            EarnlyDivider().padding(.vertical, EarnlySpacing.xs)
+            ForEach(state.facts, id: \.label) { fact in
+                HStack(alignment: .firstTextBaseline, spacing: EarnlySpacing.sm) {
+                    Text(fact.value).font(EarnlyFont.stat).foregroundStyle(EarnlyColor.ink)
+                    Text(fact.label).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
     }
 }
 

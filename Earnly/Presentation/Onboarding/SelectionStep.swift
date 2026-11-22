@@ -4,8 +4,9 @@ import SwiftUI
 struct SelectionStep: View {
     var body: some View {
         OnboardingPage(
-            title: "Choose what Earnly manages",
-            subtitle: "Pick the distracting apps, categories or websites that should pause when your allowance is used."
+            title: "Choose your distractions.",
+            subtitle: "Select which apps Earnly should manage using Apple's Screen Time controls.",
+            overline: "Screen Time"
         ) {
             ActivitySelectionPanel()
         }

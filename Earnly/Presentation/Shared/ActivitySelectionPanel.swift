@@ -44,14 +44,32 @@ struct ActivitySelectionPanel: View {
 
     private func saved(_ selection: ActivitySelectionSummary) -> some View {
         VStack(alignment: .leading, spacing: EarnlySpacing.md) {
-            VStack(alignment: .leading, spacing: EarnlySpacing.xxs) {
-                Text("Selected").earnlyOverline()
-                Text(selection.description).font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
+            VStack(spacing: 0) {
+                EarnlyDivider()
+                selectionRow("Apps", selection.applications)
+                selectionRow("Categories", selection.categories)
+                selectionRow("Websites", selection.webDomains)
             }
             if let labels = model.service.makeSelectionLabels() { labels }
             monitoringRow
             caution
-            chooseButton(title: "Change selection", kind: .secondary)
+            chooseButton(title: "Edit selected apps")
+        }
+    }
+
+    @ViewBuilder
+    private func selectionRow(_ title: String, _ count: Int) -> some View {
+        if count > 0 {
+            HStack {
+                Text(title).font(EarnlyFont.body).foregroundStyle(EarnlyColor.ink)
+                Spacer()
+                Text("\(count)").font(EarnlyFont.body.monospacedDigit()).foregroundStyle(EarnlyColor.inkSecondary)
+                Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(EarnlyColor.brandText)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: EarnlyGeometry.minTouchTarget + EarnlySpacing.xs)
+            .accessibilityElement(children: .combine)
+            EarnlyDivider()
         }
     }
 

@@ -32,6 +32,8 @@ struct DashboardPresentation: Equatable {
         var isMeasured: Bool
     }
 
+    struct Fact: Equatable { var value: String; var label: String }
+
     var state: State
     var title: String
     var detail: String
@@ -39,11 +41,12 @@ struct DashboardPresentation: Equatable {
     var hero: Hero?
     var primary: (action: Action, title: String)?
     var progressFraction: Double?
+    var facts: [Fact] = []
 
     static func == (l: DashboardPresentation, r: DashboardPresentation) -> Bool {
         l.state == r.state && l.title == r.title && l.detail == r.detail && l.tone == r.tone
             && l.hero == r.hero && l.primary?.action == r.primary?.action
-            && l.primary?.title == r.primary?.title && l.progressFraction == r.progressFraction
+            && l.primary?.title == r.primary?.title && l.progressFraction == r.progressFraction && l.facts == r.facts
     }
 
     static func make(from snapshot: ServiceSnapshot?) -> DashboardPresentation {
@@ -136,11 +139,11 @@ struct DashboardPresentation: Equatable {
         case .restricted:
             return .init(
                 state: .restricted, title: "Time to earn it.",
-                detail: "Your selected apps are restricted. Complete the questions to earn \(policy.rewardMinutes) more minutes.",
-                tone: .warning,
-                hero: Hero(overline: "Practice to unlock", value: "\(policy.requiredQuestions)",
-                           caption: "questions = +\(policy.rewardMinutes) minutes", isMeasured: false),
-                primary: (.startPractice, "Start \(policy.requiredQuestions) questions"))
+                detail: "You've used your entertainment allowance. Complete a short practice session to earn more time.",
+                tone: .neutral,
+                primary: (.startPractice, "Start practice"),
+                facts: [.init(value: "\(policy.requiredQuestions)", label: "Practice questions"),
+                        .init(value: "\(policy.rewardMinutes)m", label: "Screen time reward")])
         case .available:
             if let minutes = s.releasedRewardMinutes {
                 return .init(

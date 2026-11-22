@@ -5,19 +5,21 @@ struct AllowanceStep: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        @Bindable var model = model
         OnboardingPage(
-            title: "Set your starting allowance",
-            subtitle: "Time you can spend in your selected apps before they pause."
+            title: "Make time work for you.",
+            subtitle: "Choose your initial entertainment allowance.",
+            overline: "Screen Time"
         ) {
-            VStack(alignment: .leading, spacing: EarnlySpacing.xxl) {
-                AllowancePicker()
+            VStack(alignment: .leading, spacing: EarnlySpacing.xl) {
+                AllowancePicker(
+                    selection: Binding(
+                        get: { model.displayedAllowance },
+                        set: { minutes in Task { await model.setAllowance(minutes: minutes) } }),
+                    isDisabled: { if case .applying = model.change { return true } else { return false } }())
+                AllowanceChangeStatus()
                 EarnlyDivider()
-                VStack(alignment: .leading, spacing: EarnlySpacing.sm) {
-                    EarnlySectionHeader("How you earn more")
-                    RewardRuleSummary(policy: model.policy)
-                    Text("This is the standard rule. Allowance is what you can use; it isn't a measure of time left.")
-                        .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
-                }
+                RewardRuleSummary(policy: model.policy)
             }
         }
     }

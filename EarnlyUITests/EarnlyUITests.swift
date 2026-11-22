@@ -32,12 +32,12 @@ final class EarnlyUITests: XCTestCase {
 
     func testRestrictedStateOffersPractice() {
         let app = launch("thresholdReached")
-        XCTAssertTrue(app.buttons["Start 10 questions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Start practice"].waitForExistence(timeout: 3))
     }
 
     func testPracticeAnswerFlow() {
         let app = launch("thresholdReached")
-        app.buttons["Start 10 questions"].tap()
+        app.buttons["Start practice"].tap()
         XCTAssertTrue(app.staticTexts["Question 1 of 10"].waitForExistence(timeout: 3))
         app.buttons["Choice C: 7"].tap()
         app.buttons["Check answer"].tap()

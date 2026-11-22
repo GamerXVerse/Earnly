@@ -53,17 +53,33 @@ struct ExamPreferencesView: View {
 
 struct ScreenTimeSettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var draft: Int?
+
+    private var chosen: Int { draft ?? model.policy.allowanceMinutes }
+    private var isBusy: Bool { if case .applying = model.change { return true } else { return false } }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
-                Text("Starting allowance").font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
-                AllowancePicker()
-                Text("This is how much time you can use before your selected apps pause. It isn't a measure of time left.")
-                    .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+            VStack(alignment: .leading, spacing: EarnlySpacing.xl) {
+                VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
+                    Text("Screen Time").earnlyOverline().foregroundStyle(EarnlyColor.brandText)
+                    Text("Make time work for you.").font(EarnlyFont.titleMedium).foregroundStyle(EarnlyColor.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Choose your entertainment allowance. It's what you can use before your selected apps pause, not a measure of time left.")
+                        .font(EarnlyFont.body).foregroundStyle(EarnlyColor.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                AllowancePicker(selection: Binding(get: { chosen }, set: { draft = $0 }), isDisabled: isBusy)
+                AllowanceChangeStatus()
                 if model.snapshot?.stage == .configuring {
                     EarnlyStatusMessage(kind: .info, title: "Updating", text: "The new allowance is active once monitoring is confirmed.")
                 }
+                EarnlyDivider()
+                RewardRuleSummary(policy: model.policy)
+                EarnlyButton(title: isBusy ? "Saving…" : "Save allowance") {
+                    Task { await model.setAllowance(minutes: chosen); draft = nil }
+                }
+                .disabled(isBusy || chosen == model.policy.allowanceMinutes)
             }
             .padding(EarnlySpacing.screenMargin)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,9 +93,18 @@ struct ScreenTimeSettingsView: View {
 struct ActivitySelectionSettingsView: View {
     var body: some View {
         ScrollView {
-            ActivitySelectionPanel()
-                .padding(EarnlySpacing.screenMargin)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: EarnlySpacing.xl) {
+                VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
+                    Text("Screen Time").earnlyOverline().foregroundStyle(EarnlyColor.brandText)
+                    Text("Choose your distractions.").font(EarnlyFont.titleMedium).foregroundStyle(EarnlyColor.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Select which apps Earnly should manage using Apple's Screen Time controls.")
+                        .font(EarnlyFont.body).foregroundStyle(EarnlyColor.inkSecondary)
+                }
+                ActivitySelectionPanel()
+            }
+            .padding(EarnlySpacing.screenMargin)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(EarnlyColor.canvas)
         .navigationTitle("Selected apps")

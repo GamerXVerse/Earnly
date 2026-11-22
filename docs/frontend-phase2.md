@@ -69,7 +69,7 @@ Snapshot mapping: `RestrictionState` -> `LifecycleStage`; `.failed(.shield)` wit
 
 ## Verification
 
-Simulator (iPhone 17 Pro, Xcode 26.6, dev adapter): Debug build and Release build succeed; 29 unit tests and 5 UI tests pass (onboarding progression, auth rendering and no re-prompt, selection cancel/empty, repeated activation, interrupted practice, duplicate submit, reward retry single-credit, unsupported remaining usage, restricted/practice/release-failure flows). Screenshots reviewed in light mode: Today restricted, release failure, authorization denied. Not reviewed: dark mode, onboarding authorization/selection screens, reward success, Settings, small devices, large Dynamic Type, VoiceOver, Reduce Motion.
+Simulator (iPhone 17 Pro, Xcode 26.6, dev adapter): Debug build and Release build succeed; 29 unit tests and 5 UI tests pass (onboarding progression, auth rendering and no re-prompt, selection cancel/empty, repeated activation, interrupted practice, duplicate submit, reward retry single-credit, unsupported remaining usage, restricted/practice/release-failure flows). Screenshots reviewed in light mode: Today restricted (revised to match the Phase 2 target: brand mark, headline, facts, one action), release failure, authorization denied. The revised reward-complete, allowance (radio rows + Save) and selection screens follow the target layout but were not screenshot-reviewed. Not reviewed: dark mode, onboarding authorization/selection screens, reward success, Settings, small devices, large Dynamic Type, VoiceOver, Reduce Motion.
 
 Not verified: real Screen Time authorization, FamilyActivityPicker, monitoring, shields, extensions, or any physical-device behavior.
 
