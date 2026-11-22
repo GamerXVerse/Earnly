@@ -52,6 +52,19 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
     public func studyProfile() -> StudyProfile { state.profile }
     public func rewardLedger() -> RewardLedger { state.ledger }
     public func currentCycle() -> UsageCycle? { state.lifecycle.stage.cycle }
+
+    func completedSessionAwaitingCredit() -> UUID? {
+        switch state.lifecycle.stage {
+        case let .pending(_, sessionID): return sessionID
+        case let .pausedReward(sessionID) where state.ledger.transactions[sessionID] == nil: return sessionID
+        default: return nil
+        }
+    }
+
+    func isAwaitingAccessRelease(cycleID: UUID) -> Bool {
+        guard case let .releasing(cycle) = state.lifecycle.stage else { return false }
+        return cycle.id == cycleID
+    }
     public func pendingOperation() -> RestrictionOperation? { state.lifecycle.operation(selection: state.selection) }
 
     public func saveStudyProfile(_ profile: StudyProfile) throws {
@@ -66,19 +79,37 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         try requireAuthorization()
         guard policy.isEnabled else { throw LifecycleError.disabledPolicy }
         guard selection.isValid else { throw LifecycleError.invalidSelection }
-        guard state.lifecycle.stage == .unconfigured else { throw LifecycleError.configurationLocked }
-        let cycle = UsageCycle(id: UUID(), thresholdMinutes: policy.initialAllowance.rawValue, rewardSessionID: nil)
         var next = state
+        let cycle: UsageCycle
+        switch state.lifecycle.stage {
+        case .unconfigured:
+            cycle = UsageCycle(id: UUID(), thresholdMinutes: policy.initialAllowance.rawValue, rewardSessionID: nil)
+            next.lifecycle.stage = .installing(cycle)
+        case let .pausedReward(sessionID):
+            guard let session = state.sessions[sessionID] else { throw PracticeError.unknownSession }
+            if let credit = state.ledger.transactions[sessionID] {
+                cycle = UsageCycle(id: UUID(), thresholdMinutes: credit.earnedMinutes, rewardSessionID: sessionID)
+                next.lifecycle.stage = .installing(cycle)
+            } else {
+                cycle = UsageCycle(id: UUID(), thresholdMinutes: policy.initialAllowance.rawValue, rewardSessionID: nil)
+                next.lifecycle.stage = .pending(cycle, sessionID: session.id)
+            }
+            next.lifecycle.needsShieldReconciliation = true
+        default:
+            throw LifecycleError.configurationLocked
+        }
         next.policy = policy
         next.selection = selection
-        next.lifecycle.stage = .installing(cycle)
         try commit(next)
         return cycle
     }
 
     /// Validate before starting platform cleanup under the coordinator's serialization.
     public func checkConfigurationReset() throws {
-        if case .pending = state.lifecycle.stage { throw LifecycleError.configurationLocked }
+        switch state.lifecycle.stage {
+        case .pending, .pausedReward: throw LifecycleError.configurationLocked
+        default: break
+        }
         switch state.lifecycle.stage {
         case let .installing(cycle), let .releasing(cycle):
             guard cycle.rewardSessionID == nil else { throw LifecycleError.configurationLocked }
@@ -97,6 +128,28 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         next.lifecycle.needsShieldReconciliation = false
         next.selection = nil
         if let policy { next.policy = policy }
+        try commit(next)
+    }
+
+    /// Persist an explicit user disablement while retaining any completed, unactivated reward.
+    func pauseScreenTime() throws {
+        var next = state
+        switch state.lifecycle.stage {
+        case let .pending(_, sessionID), let .pausedReward(sessionID):
+            next.lifecycle.stage = .pausedReward(sessionID: sessionID)
+        case let .installing(cycle), let .releasing(cycle):
+            next.lifecycle.stage = cycle.rewardSessionID.map { .pausedReward(sessionID: $0) } ?? .unconfigured
+        default:
+            next.lifecycle.stage = .unconfigured
+        }
+        next.policy = try ScreenTimePolicy(
+            initialAllowance: state.policy.initialAllowance, requiredQuestions: state.policy.requiredQuestions,
+            rewardedMinutes: state.policy.rewardedMinutes, isEnabled: false
+        )
+        next.selection = nil
+        next.lifecycle.failure = nil
+        next.lifecycle.needsSelectionRefresh = false
+        next.lifecycle.needsShieldReconciliation = false
         try commit(next)
     }
 
@@ -129,7 +182,7 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         case let .pending(_, sessionID):
             next.lifecycle.stage = .pending(cycle, sessionID: sessionID)
             next.lifecycle.needsShieldReconciliation = true
-        case .unconfigured:
+        case .unconfigured, .pausedReward:
             throw LifecycleError.invalidTransition
         }
         next.selection = selection
@@ -222,8 +275,10 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         if let credit = state.ledger.transactions[sessionID] { return credit }
         let session = try session(id: sessionID)
         guard let completedAt = session.completedAt else { throw PracticeError.incompleteSession }
-        guard case let .pending(_, activeID) = state.lifecycle.stage, activeID == sessionID else {
-            throw LifecycleError.invalidTransition
+        guard state.lifecycle.stage.activeSessionID == sessionID else { throw LifecycleError.invalidTransition }
+        switch state.lifecycle.stage {
+        case .pending, .pausedReward: break
+        default: throw LifecycleError.invalidTransition
         }
 
         guard !state.ledger.totalEarnedMinutes.addingReportingOverflow(session.rewardMinutes).overflow else {
@@ -234,7 +289,9 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
         let cycle = UsageCycle(id: UUID(), thresholdMinutes: credit.earnedMinutes, rewardSessionID: sessionID)
         var next = state
         next.ledger.transactions[sessionID] = credit
-        next.lifecycle.stage = .installing(cycle)
+        if case .pending = next.lifecycle.stage {
+            next.lifecycle.stage = .installing(cycle)
+        }
         try commit(next)
         return credit
     }

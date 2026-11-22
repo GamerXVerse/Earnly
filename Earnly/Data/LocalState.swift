@@ -35,6 +35,8 @@ struct LocalState: Codable, Equatable, Sendable {
         switch lifecycle.stage {
         case let .installing(cycle), let .releasing(cycle):
             unactivatedRewardID = cycle.rewardSessionID
+        case let .pausedReward(sessionID):
+            unactivatedRewardID = sessionID
         default:
             unactivatedRewardID = nil
         }
@@ -61,7 +63,8 @@ struct LocalState: Codable, Equatable, Sendable {
         }
         if let failure = lifecycle.failure {
             switch (lifecycle.stage, failure) {
-            case (.installing, .monitoring), (.installing, .thresholdBeforeRelease),
+            case (.available, .monitoringInterrupted), (.installing, .monitoringInterrupted),
+                 (.releasing, .monitoringInterrupted), (.installing, .monitoring), (.installing, .thresholdBeforeRelease),
                  (.releasing, .thresholdBeforeRelease), (.releasing, .shield), (.shielding, .shield): break
             case (.installing, .shield), (.restricted, .shield), (.practicing, .shield), (.pending, .shield):
                 guard lifecycle.needsShieldReconciliation else { return false }
@@ -72,6 +75,9 @@ struct LocalState: Codable, Equatable, Sendable {
         switch lifecycle.stage {
         case .unconfigured:
             return true
+        case let .pausedReward(sessionID):
+            return !policy.isEnabled && sessions[sessionID]?.isComplete == true
+                && ledger.transactions[sessionID]?.activatedAt == nil
         case let .installing(cycle), let .releasing(cycle):
             return cycle.rewardSessionID.map {
                 ledger.transactions[$0]?.activatedAt == nil && ledger.transactions[$0] != nil

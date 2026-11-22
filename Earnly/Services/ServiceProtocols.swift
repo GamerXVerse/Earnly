@@ -3,6 +3,8 @@ import Foundation
 public enum ScreenTimeServiceError: Error, Equatable, Sendable {
     case denied, revoked, unavailable, requestFailed, invalidSelection, selectionNotFound
     case monitoringFailed, shieldingFailed, unknownCycle
+    case unsupportedOS, unsafeSelection, monitoringInterrupted, earlyThreshold
+    case operationInProgress, invalidHostConfiguration
 }
 
 public protocol ScreenTimeAuthorizing: Sendable {

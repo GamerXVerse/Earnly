@@ -45,7 +45,7 @@ public enum RestrictionState: Codable, Equatable, Sendable {
 }
 
 public enum RestrictionFailure: String, Codable, Equatable, Sendable {
-    case monitoring, shield, thresholdBeforeRelease
+    case monitoring, shield, thresholdBeforeRelease, monitoringInterrupted
 }
 
 public enum LifecycleError: Error, Equatable, Sendable {

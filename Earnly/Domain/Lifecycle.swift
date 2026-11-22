@@ -3,6 +3,7 @@ import Foundation
 struct Lifecycle: Codable, Equatable, Sendable {
     enum Stage: Codable, Equatable, Sendable {
         case unconfigured
+        case pausedReward(sessionID: UUID)
         case installing(UsageCycle)
         case releasing(UsageCycle)
         case available(UsageCycle)
@@ -13,7 +14,7 @@ struct Lifecycle: Codable, Equatable, Sendable {
 
         var cycle: UsageCycle? {
             switch self {
-            case .unconfigured: nil
+            case .unconfigured, .pausedReward: nil
             case let .installing(cycle), let .releasing(cycle), let .available(cycle),
                  let .shielding(cycle), let .restricted(cycle), let .practicing(cycle, _),
                  let .pending(cycle, _): cycle
@@ -22,7 +23,7 @@ struct Lifecycle: Codable, Equatable, Sendable {
 
         var activeSessionID: UUID? {
             switch self {
-            case let .practicing(_, sessionID), let .pending(_, sessionID): sessionID
+            case let .practicing(_, sessionID), let .pending(_, sessionID), let .pausedReward(sessionID): sessionID
             case let .installing(cycle), let .releasing(cycle): cycle.rewardSessionID
             default: nil
             }
@@ -44,7 +45,7 @@ struct Lifecycle: Codable, Equatable, Sendable {
         if let failure { return .failed(failure) }
         if needsShieldReconciliation { return .applyingShield }
         switch stage {
-        case .unconfigured: return .unconfigured
+        case .unconfigured, .pausedReward: return .unconfigured
         case let .installing(cycle), let .releasing(cycle):
             if let sessionID = cycle.rewardSessionID { return .rewardPending(sessionID: sessionID) }
             return .configuring
@@ -105,10 +106,11 @@ struct Lifecycle: Codable, Equatable, Sendable {
             guard authorization == .approved else { throw LifecycleError.authorizationRequired(authorization) }
             if needsShieldReconciliation { return }
             if stage == .installing(cycle) || stage == .releasing(cycle) {
+                guard failure != .monitoringInterrupted else { return }
                 failure = .thresholdBeforeRelease
                 return
             }
-            guard stage == .available(cycle) else { return }
+            guard stage == .available(cycle), failure != .monitoringInterrupted else { return }
             if let sessionID = cycle.rewardSessionID {
                 guard var credit = ledger.transactions[sessionID], let activatedAt = credit.activatedAt else {
                     throw LifecycleError.missingCredit
@@ -132,6 +134,15 @@ struct Lifecycle: Codable, Equatable, Sendable {
             }
         case let .operationFailed(id, reason):
             guard try activeCycle(id) != nil else { return }
+            if reason == .monitoringInterrupted {
+                switch stage {
+                case .available, .installing, .releasing:
+                    failure = .monitoringInterrupted
+                    return
+                default:
+                    throw LifecycleError.invalidTransition
+                }
+            }
             let expected: RestrictionFailure
             switch stage {
             case .installing: expected = needsShieldReconciliation ? .shield : .monitoring
@@ -145,6 +156,7 @@ struct Lifecycle: Codable, Equatable, Sendable {
             if failure == nil { failure = reason }
         case let .retry(id):
             guard let cycle = try activeCycle(id) else { return }
+            guard failure != .monitoringInterrupted else { throw LifecycleError.configurationLocked }
             if failure == .thresholdBeforeRelease {
                 stage = .installing(.init(id: UUID(), thresholdMinutes: cycle.thresholdMinutes,
                                           rewardSessionID: cycle.rewardSessionID))

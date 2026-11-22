@@ -67,3 +67,36 @@ The example configures a fresh demo file. `SimulatedScreenTime` stores its setti
 For expected adapter failures, record `.operationFailed(cycleID: id, .monitoring)` or `.operationFailed(cycleID: id, .shield)` using the actual operation ID. Use `retryPendingOperation()` after diagnosing the failure and checking authorization. When refreshing authorization fails transiently, a current threshold receipt stays pending until approval can be verified. Use `DashboardValue` provenance to label simulated values appropriately. `remainingMinutes` is `.unavailable`. A threshold evidence value represents a lower bound for one eligibility cycle. Render it separately from remaining time.
 
 `LifecycleError` distinguishes permission, invalid selection, disabled policy, locked configuration, invalid transitions and damaged credit references. `PracticeError` distinguishes missing or invalid question sets, unknown sessions and submissions, conflicting duplicates and incomplete sessions. `RewardError.ledgerCapacityExceeded` is an accounting overflow guard. `PersistenceError` distinguishes corruption, unknown schema, inconsistent records, unreadable files and write failures. Preserve the last successful snapshot on a failed write and show retry or recovery state. Expected screen labels belong in the app's presentation layer.
+
+## Phase 2 native host interface
+
+On iOS, import `EarnlySystems` and `FamilyControls`. Create one `@MainActor AppleScreenTimeEngine` from the real registered group, the current host bundle identifier, and a private Application Support URL. Call `appDidBecomeActive() async throws` on initial activation and each return to the active scene. This also recovers valid completions left between the last answer and the host credit commit. Serialize user commands in the view model. The coordinator rejects overlapping host commands with `ScreenTimeServiceError.operationInProgress`.
+
+| API | Frontend use |
+| --- | --- |
+| `init(fileURL:appGroupIdentifier:hostBundleIdentifier:) throws` | Create once per host. Group access and learning file failures are explicit. Use a separate file for simulation. |
+| `requestAuthorization() async throws -> AuthorizationState` | Call from an explicit user gesture. Denial, revocation and unexpected request failures can throw. Read the reconciled dashboard after either outcome. |
+| `pickerSelection() throws -> FamilyActivitySelection` | Copy the current Apple selection to an editable draft. Present Apple's picker with a binding. Cancel by discarding the draft. |
+| `configure(policy:selection:) async throws` | Submit a confirmed draft with an enabled policy. The native Apple adapter validates scope before changing any running policy. It rejects unsupported OS, empty selection, categories and app selections for which it cannot verify self-exclusion. Approved but invalidated selection can resume a suspended lifecycle with its original terms. |
+| `system.startPractice() async throws -> PracticeSession` and `system.submitAnswer(sessionID:questionID:answerID:) async throws -> PracticeSession` | Reuse Phase 1 logic and expose practice for eligible states. The last valid answer completes the session. Use `isComplete` to present completion. |
+| `finishPractice(sessionID:) async throws -> RewardTransaction` | Validates persisted completion and commits a single credit, then drives the platform operations. An operational error can occur after the credit was written. Refresh the dashboard and ledger, then present retry or pending state. |
+| `retry() async throws` | Replays durable pending registration, release, or cleanup. A monitoring interruption can return `LifecycleError.configurationLocked` when the amount consumed became unknown. Offer explicit disablement and reconfiguration there. |
+| `disable() async throws` | Fences callbacks first, stops only Earnly registrations, and clears only Earnly's store. A partial failure exposes `.cleanupPending`. A completed unactivated reward survives cleanup and can resume on later setup. |
+| `dashboard() async -> NativeDashboard` | Read `dashboard` for confirmed authorization, policy, practice and credit data. Use `monitoring` for current checked registration, pending, shielded, unavailable, interrupted or cleanup presentation. Only `.registered` supports “Allowance active.” Remaining usage stays unavailable. |
+
+The host can observe either a shielded or pending state when it returns from an extension and route inside Earnly accordingly. Earlier OS versions and the default current shield action close the selected activity, and the user then opens Earnly. The package's internal `ScreenTimeCoordinator` owns lifecycle effects. Use the raw Phase 1 platform commands only in deterministic development flows. Native UI code can use the existing practice and profile APIs on `engine.system`.
+
+```swift
+let engine = try AppleScreenTimeEngine(
+    fileURL: privateLearningFile,
+    appGroupIdentifier: configuredGroup,
+    hostBundleIdentifier: hostIdentifier
+)
+// The view model invokes this from scene activation.
+try await engine.appDidBecomeActive()
+// Present the system picker with a draft, then call this on confirmation.
+try await engine.configure(policy: .standard, selection: confirmedDraft)
+let state = await engine.dashboard()
+```
+
+Phase 1 Swift method signatures remain intact. `RestrictionFailure.monitoringInterrupted` is an additive case that requires updating exhaustive switches. A paused completed session can appear in `activeSession` with an unconfigured restriction and disabled policy; use the dashboard's policy and monitoring fields to decide whether credit activation is possible. Extended `ScreenTimeServiceError` and `ScreenTimePersistenceError` distinguish unsafe scope, unsupported OS, operation overlap, monitoring/shield failures, and shared-state recovery faults.
