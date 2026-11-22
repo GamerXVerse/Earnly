@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Temporary, frontend-only study configuration. NOT persisted.
-/// Production models and storage belong to the systems agent.
+/// Frontend-only exam selection. NOT persisted and not part of the screen-time policy.
+/// Maps to the systems `StudyProfile` / `ExamType` at integration (see docs/frontend-phase2.md).
 enum PreviewExam: String, CaseIterable, Identifiable, Hashable {
     case sat, psat, act, ap
 
@@ -38,47 +38,21 @@ enum PreviewAPSubject: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
 }
 
-enum PreviewAuthorizationState: Equatable {
-    /// Not requested yet.
-    case notDetermined
-    /// Development-only: pretends access was granted. No real access exists.
-    case simulatedGranted
-    /// The user declined.
-    case denied
-    /// The system cannot offer authorization (restricted device, Screen Time off).
-    case unavailable
-
-    var label: String {
-        switch self {
-        case .notDetermined: return "Not requested"
-        case .simulatedGranted: return "Granted (development simulation)"
-        case .denied: return "Declined"
-        case .unavailable: return "Unavailable"
-        }
-    }
-}
-
 @Observable
 final class PreviewStudyProfile {
     var selectedExams: Set<PreviewExam>
     var selectedAPSubjects: Set<PreviewAPSubject>
-    var allowanceMinutes: Int
-    /// Demonstration reward: questions required and minutes earned per set.
-    let rewardQuestions = 10
-    let rewardMinutes = 10
 
     init(
         selectedExams: Set<PreviewExam> = [],
-        selectedAPSubjects: Set<PreviewAPSubject> = [],
-        allowanceMinutes: Int = 10
+        selectedAPSubjects: Set<PreviewAPSubject> = []
     ) {
         self.selectedExams = selectedExams
         self.selectedAPSubjects = selectedAPSubjects
-        self.allowanceMinutes = allowanceMinutes
     }
 
     static var sample: PreviewStudyProfile {
-        PreviewStudyProfile(selectedExams: [.sat], allowanceMinutes: 10)
+        PreviewStudyProfile(selectedExams: [.sat])
     }
 
     func toggle(_ exam: PreviewExam) {
@@ -124,9 +98,5 @@ final class PreviewStudyProfile {
             return exam.title
         }
         return names.isEmpty ? "None selected" : names.joined(separator: ", ")
-    }
-
-    var configurationSummary: String {
-        "\(allowanceMinutes)-minute allowance · \(rewardQuestions) questions = \(rewardMinutes) minutes"
     }
 }

@@ -16,38 +16,35 @@ struct QuestionStem: View {
 }
 
 struct AnswerList: View {
-    let session: PreviewPracticeSession
+    let flow: PracticeFlowModel
 
     var body: some View {
-        VStack(spacing: EarnlySpacing.sm) {
-            ForEach(Array(session.current.choices.enumerated()), id: \.offset) { index, text in
-                AnswerOptionRow(
-                    letter: letter(index),
-                    text: text,
-                    state: state(for: index)
-                ) {
-                    EarnlyHaptics.selection()
-                    session.select(index)
+        if let question = flow.current {
+            VStack(spacing: EarnlySpacing.sm) {
+                ForEach(Array(question.options.enumerated()), id: \.element.id) { index, option in
+                    AnswerOptionRow(letter: letter(index), text: option.text, state: state(for: option.id, in: question)) {
+                        EarnlyHaptics.selection()
+                        flow.select(option.id)
+                    }
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Answer choices")
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Answer choices")
     }
 
     private func letter(_ index: Int) -> String {
         String(UnicodeScalar(UInt8(65 + index)))
     }
 
-    private func state(for index: Int) -> AnswerOptionRow.State {
-        switch session.phase {
-        case .answering:
-            return session.selectedChoice == index ? .selected : .idle
-        default:
-            if index == session.current.correctIndex { return .correct }
-            if index == session.selectedChoice { return .incorrect }
+    private func state(for id: String, in question: PracticeQuestion) -> AnswerOptionRow.State {
+        if flow.phase == .submitted, let attempt = flow.lastAttempt {
+            if id == question.correctAnswerID { return .correct }
+            if id == attempt.answerID { return .incorrect }
             return .dimmed
         }
+        if flow.isSubmitting { return flow.selectedAnswerID == id ? .selected : .dimmed }
+        return flow.selectedAnswerID == id ? .selected : .idle
     }
 }
 
@@ -167,10 +164,14 @@ struct AnswerOptionRow: View {
 /// Result of a submitted answer, with the explanation. Uses an icon and text
 /// as well as color so the result never depends on color alone.
 struct AnswerFeedback: View {
-    let question: PreviewQuestion
-    let selected: Int
+    let question: PracticeQuestion
+    let attempt: PracticeAttempt
 
-    private var isCorrect: Bool { selected == question.correctIndex }
+    private var isCorrect: Bool { attempt.isCorrect }
+    private var correctLetter: String {
+        let index = question.options.firstIndex { $0.id == question.correctAnswerID } ?? 0
+        return String(UnicodeScalar(UInt8(65 + index)))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
@@ -183,7 +184,7 @@ struct AnswerFeedback: View {
             .foregroundStyle(isCorrect ? EarnlyColor.successText : EarnlyColor.error)
 
             if !isCorrect {
-                Text("The correct answer is \(String(UnicodeScalar(UInt8(65 + question.correctIndex)))).")
+                Text("The correct answer is \(correctLetter).")
                     .font(EarnlyFont.secondaryEmphasis)
                     .foregroundStyle(EarnlyColor.ink)
             }

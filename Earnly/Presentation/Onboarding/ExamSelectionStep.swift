@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Screen 3: choose one or more exams. AP expands into individual exams.
 struct ExamSelectionStep: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var apExpanded = false
 
@@ -75,8 +75,10 @@ struct ExamSelectionStep: View {
     }
 }
 
+#if DEBUG
 #Preview("Exam selection") {
     ExamSelectionStep()
-        .environment(PreviewAppModel())
+        .environment(AppModel(service: DevelopmentScreenTimeService(), defaults: nil))
         .background(EarnlyColor.canvas)
 }
+#endif

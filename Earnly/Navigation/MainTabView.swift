@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(AppRouter.self) private var router
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var router = router
@@ -21,12 +21,11 @@ struct MainTabView: View {
                 .tag(AppTab.settings)
         }
         .tint(EarnlyColor.brand)
-        .fullScreenCover(item: $router.practiceLaunch) { launch in
+        .fullScreenCover(item: $router.practiceLaunch) { _ in
             PracticeSessionView(
-                session: PreviewPracticeSession(rewardMinutes: model.profile.rewardMinutes, startingAt: launch.startingAt),
+                flow: PracticeFlowModel(app: model),
                 onClose: { router.dismissPractice() },
                 onFinish: {
-                    model.finishPractice()
                     router.dismissPractice()
                     router.select(.today)
                 })
@@ -34,8 +33,10 @@ struct MainTabView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     MainTabView()
         .environment(AppRouter())
-        .environment(PreviewAppModel.previewMain)
+        .environment(AppModel(service: DevelopmentScreenTimeService(fixture: .allowanceActive), defaults: nil))
 }
+#endif

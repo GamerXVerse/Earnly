@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct EarnlyApp: App {
-    @State private var model = PreviewAppModel.initialForLaunch()
+    @State private var model = AppModel.forLaunch()
     @State private var router = AppRouter()
 
     var body: some Scene {
@@ -14,17 +14,23 @@ struct EarnlyApp: App {
     }
 }
 
-extension PreviewAppModel {
-    /// Supports deterministic UI testing and screenshots via launch arguments:
-    /// `-earnly-skip-onboarding` and `-earnly-state <PreviewDashboardState raw value>`.
-    static func initialForLaunch(arguments: [String] = ProcessInfo.processInfo.arguments) -> PreviewAppModel {
-        guard arguments.contains("-earnly-skip-onboarding") else { return PreviewAppModel() }
-        let model = PreviewAppModel.previewMain
-        if let flag = arguments.firstIndex(of: "-earnly-state"), arguments.indices.contains(flag + 1),
-           let state = PreviewDashboardState(rawValue: arguments[flag + 1]) {
-            model.dashboardState = state
-        }
-        if arguments.contains("-earnly-empty-progress") { model.showsDemoProgress = false }
-        return model
+extension AppModel {
+    /// Debug launch arguments for deterministic UI tests and screenshots:
+    /// `-earnly-skip-onboarding`, `-earnly-fixture <DevelopmentFixture>`, `-earnly-no-latency`,
+    /// `-earnly-fresh-defaults`. Release builds ignore them and use the disconnected service.
+    @MainActor
+    static func forLaunch(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppModel {
+        let service = ScreenTimeServiceFactory.make(arguments: arguments)
+        #if DEBUG
+        let skip = arguments.contains("-earnly-skip-onboarding")
+        let useDefaults = !arguments.contains("-earnly-fresh-defaults") && !skip
+        return AppModel(
+            service: service,
+            profile: skip ? .sample : PreviewStudyProfile(),
+            hasCompletedOnboarding: skip ? true : nil,
+            defaults: useDefaults ? .standard : nil)
+        #else
+        return AppModel(service: service)
+        #endif
     }
 }

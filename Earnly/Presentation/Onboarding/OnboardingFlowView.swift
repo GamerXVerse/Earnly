@@ -3,7 +3,7 @@ import SwiftUI
 /// Temporary navigation state for the five-step onboarding.
 @Observable
 final class OnboardingModel {
-    static let stepCount = 5
+    static let stepCount = 6
     private(set) var step = 0
     private(set) var isMovingForward = true
 
@@ -24,7 +24,7 @@ final class OnboardingModel {
 }
 
 struct OnboardingFlowView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flow = OnboardingModel()
 
@@ -80,7 +80,8 @@ struct OnboardingFlowView: View {
         case 1: HowItWorksStep()
         case 2: ExamSelectionStep()
         case 3: AllowanceStep()
-        default: AuthorizationStep()
+        case 4: AuthorizationStep()
+        default: SelectionStep()
         }
     }
 
@@ -99,6 +100,8 @@ struct OnboardingFlowView: View {
                 }
             case 4:
                 authorizationFooter
+            case 5:
+                selectionFooter
             default:
                 EarnlyButton(title: "Continue") { move { flow.next() } }
             }
@@ -111,19 +114,26 @@ struct OnboardingFlowView: View {
 
     @ViewBuilder
     private var authorizationFooter: some View {
-        if model.authorization == .simulatedGranted {
+        if model.authorization == .authorized {
+            EarnlyButton(title: "Continue", trailingSymbol: "arrow.right") {
+                EarnlyHaptics.success()
+                move { flow.next() }
+            }
+        } else {
+            AuthorizationAction()
+            EarnlyButton(title: "Continue without access", kind: .text) { model.completeOnboarding() }
+        }
+    }
+
+    @ViewBuilder
+    private var selectionFooter: some View {
+        if let selection = model.snapshot?.selection, !selection.isEmpty, model.monitoringStatus.kind != .pending {
             EarnlyButton(title: "Start using Earnly", trailingSymbol: "arrow.right") {
                 EarnlyHaptics.success()
                 model.completeOnboarding()
             }
         } else {
-            EarnlyButton(title: model.authorization == .denied ? "Try again" : "Allow Screen Time access") {
-                model.requestAuthorization()
-                EarnlyHaptics.light()
-            }
-            EarnlyButton(title: "Continue without access", kind: .text) {
-                model.completeOnboarding()
-            }
+            EarnlyButton(title: "Skip for now", kind: .text) { model.completeOnboarding() }
         }
     }
 
@@ -164,7 +174,9 @@ struct OnboardingPage<Content: View>: View {
     }
 }
 
+#if DEBUG
 #Preview("Onboarding") {
     OnboardingFlowView()
-        .environment(PreviewAppModel())
+        .environment(AppModel(service: DevelopmentScreenTimeService(), defaults: nil))
 }
+#endif

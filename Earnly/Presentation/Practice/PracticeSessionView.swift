@@ -1,17 +1,16 @@
 import SwiftUI
 
-/// Full-screen, distraction-free practice session.
-/// The session object is temporary presentation state; production session
-/// management belongs to the systems layer.
+/// Full-screen practice session. Question progression, evaluation and completion come from
+/// `PracticeFlowModel`, which reads them from the service. Saved progress resumes automatically.
 struct PracticeSessionView: View {
-    @State var session: PreviewPracticeSession
+    @State var flow: PracticeFlowModel
     let onClose: () -> Void
     let onFinish: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(session: PreviewPracticeSession, onClose: @escaping () -> Void, onFinish: @escaping () -> Void) {
-        _session = State(initialValue: session)
+    init(flow: PracticeFlowModel, onClose: @escaping () -> Void, onFinish: @escaping () -> Void) {
+        _flow = State(initialValue: flow)
         self.onClose = onClose
         self.onFinish = onFinish
     }
@@ -19,61 +18,83 @@ struct PracticeSessionView: View {
     var body: some View {
         ZStack {
             EarnlyColor.canvas.ignoresSafeArea()
-            if session.phase == .completed {
-                SessionCompleteView(session: session, onFinish: onFinish)
-                    .transition(.opacity)
-            } else {
-                questionScreen
-                    .transition(.opacity)
+            switch flow.phase {
+            case .loading:
+                ProgressView().accessibilityLabel("Loading practice")
+            case .failed(let failure):
+                failureScreen(failure)
+            case .answering, .submitted:
+                questionScreen.transition(.opacity)
+            case .completed:
+                SessionCompleteView(flow: flow, onFinish: onFinish).transition(.opacity)
             }
         }
-        .animation(reduceMotion ? nil : EarnlyMotion.standard, value: session.phase == .completed)
+        .animation(reduceMotion ? nil : EarnlyMotion.standard, value: flow.phase == .completed)
+        .task { await flow.load() }
     }
 
-    private var questionScreen: some View {
-        VStack(spacing: 0) {
-            header
-            ScrollView {
-                VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
-                    Text(session.current.label).earnlyOverline()
-                        .foregroundStyle(EarnlyColor.brandText)
-                    QuestionStem(text: session.current.stem)
-                    AnswerList(session: session)
-                    if session.phase == .submitted {
-                        AnswerFeedback(question: session.current, selected: session.selectedChoice ?? -1)
-                            .transition(.opacity)
-                    }
-                }
-                .padding(.horizontal, EarnlySpacing.screenMargin)
-                .padding(.top, EarnlySpacing.md)
-                .padding(.bottom, EarnlySpacing.md)
+    private func failureScreen(_ failure: ServiceFailure) -> some View {
+        VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
+            HStack { closeButton; Spacer() }
+            Spacer()
+            EarnlyStatusMessage(kind: .warning, title: "Practice isn't available", text: failure.userMessage)
+            if failure != .practiceUnavailable {
+                EarnlyButton(title: "Try again") { Task { await flow.retry() } }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .id(session.index)
-            footer
+            EarnlyButton(title: "Back", kind: .secondary, action: onClose)
+            Spacer()
         }
-        .earnlyAnimation(EarnlyMotion.quick, value: session.phase)
+        .padding(.horizontal, EarnlySpacing.screenMargin)
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(EarnlyColor.ink)
+                .frame(width: EarnlyGeometry.minTouchTarget, height: EarnlyGeometry.minTouchTarget, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Close practice")
+        .accessibilityHint("Leaves this session. Your progress is saved.")
+    }
+
+    @ViewBuilder
+    private var questionScreen: some View {
+        if let question = flow.current {
+            VStack(spacing: 0) {
+                header
+                ScrollView {
+                    VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
+                        Text(question.label).earnlyOverline().foregroundStyle(EarnlyColor.brandText)
+                        QuestionStem(text: question.stem)
+                        AnswerList(flow: flow)
+                        if flow.phase == .submitted, let attempt = flow.lastAttempt {
+                            AnswerFeedback(question: question, attempt: attempt).transition(.opacity)
+                        }
+                    }
+                    .padding(.horizontal, EarnlySpacing.screenMargin)
+                    .padding(.top, EarnlySpacing.md)
+                    .padding(.bottom, EarnlySpacing.md)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .id(question.id)
+                footer
+            }
+            .earnlyAnimation(EarnlyMotion.quick, value: flow.phase)
+        }
     }
 
     private var header: some View {
         VStack(spacing: EarnlySpacing.sm) {
             HStack {
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(EarnlyColor.ink)
-                        .frame(width: EarnlyGeometry.minTouchTarget, height: EarnlyGeometry.minTouchTarget, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Close practice")
-                .accessibilityHint("Leaves this session. Progress isn't saved in the prototype.")
+                closeButton
                 Spacer()
-                Text(session.progressText)
+                Text(flow.progressText)
                     .font(EarnlyFont.secondary.monospacedDigit())
                     .foregroundStyle(EarnlyColor.inkSecondary)
-                    .accessibilityLabel(session.progressText)
             }
-            EarnlyProgressBar(value: session.progressFraction, accessibilityLabel: "Session progress")
+            EarnlyProgressBar(value: flow.progressFraction, accessibilityLabel: "Session progress")
         }
         .padding(.horizontal, EarnlySpacing.screenMargin)
         .padding(.top, EarnlySpacing.xxs)
@@ -81,22 +102,24 @@ struct PracticeSessionView: View {
 
     private var footer: some View {
         VStack(spacing: EarnlySpacing.sm) {
-            Label("\(session.rewardMinutes) minutes upon completion", systemImage: "clock")
-                .font(EarnlyFont.secondary)
-                .foregroundStyle(EarnlyColor.inkSecondary)
-            switch session.phase {
-            case .answering:
-                EarnlyButton(title: "Check answer") {
-                    session.submit()
-                    session.isCorrect ? EarnlyHaptics.success() : EarnlyHaptics.warning()
+            if let session = flow.session {
+                Label("\(session.rewardMinutes) minutes upon completion", systemImage: "clock")
+                    .font(EarnlyFont.secondary)
+                    .foregroundStyle(EarnlyColor.inkSecondary)
+            }
+            switch flow.phase {
+            case .submitted:
+                EarnlyButton(title: flow.isLastQuestion ? "Finish session" : "Next question", trailingSymbol: "arrow.right") {
+                    Task { await flow.advance() }
                 }
-                .disabled(!session.canSubmit)
             default:
-                EarnlyButton(title: session.isLastQuestion ? "Finish session" : "Next question",
-                             trailingSymbol: "arrow.right") {
-                    earnlyWithAnimation(reduceMotion: reduceMotion, EarnlyMotion.standard) { session.advance() }
-                    if session.phase == .completed { EarnlyHaptics.success() }
+                EarnlyButton(title: flow.isSubmitting ? "Checking…" : "Check answer") {
+                    Task {
+                        await flow.submit()
+                        flow.lastAttempt?.isCorrect == true ? EarnlyHaptics.success() : EarnlyHaptics.light()
+                    }
                 }
+                .disabled(!flow.canSubmit)
             }
         }
         .padding(.horizontal, EarnlySpacing.screenMargin)
@@ -106,22 +129,15 @@ struct PracticeSessionView: View {
     }
 }
 
-#Preview("Practice: answer selected") {
-    let session = PreviewPracticeSession(startingAt: 3)
-    session.select(1)
-    return PracticeSessionView(session: session, onClose: {}, onFinish: {})
+#if DEBUG
+@MainActor private func previewFlow(_ fixture: DevelopmentFixture) -> PracticeFlowModel {
+    let model = AppModel(service: DevelopmentScreenTimeService(fixture: fixture, latency: .zero), profile: .sample, hasCompletedOnboarding: true, defaults: nil)
+    return PracticeFlowModel(app: model)
 }
-
-#Preview("Practice: incorrect with explanation") {
-    let session = PreviewPracticeSession(startingAt: 3)
-    session.select(0)
-    session.submit()
-    return PracticeSessionView(session: session, onClose: {}, onFinish: {})
+#Preview("Practice: resumed") {
+    PracticeSessionView(flow: previewFlow(.interruptedPractice), onClose: {}, onFinish: {})
 }
-
-#Preview("Practice: correct, dark") {
-    let session = PreviewPracticeSession(startingAt: 3)
-    session.select(1)
-    session.submit()
-    return PracticeSessionView(session: session, onClose: {}, onFinish: {}).preferredColorScheme(.dark)
+#Preview("Practice: resumed, dark") {
+    PracticeSessionView(flow: previewFlow(.interruptedPractice), onClose: {}, onFinish: {}).preferredColorScheme(.dark)
 }
+#endif

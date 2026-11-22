@@ -1,30 +1,43 @@
 import SwiftUI
 
-/// Today: the allowance is the focal point, then the primary action, then
-/// flat supporting sections separated by rules.
+/// Today: the most important state first. The hero is either a platform measurement or an
+/// honest statement of what is configured; it is never an invented countdown.
 struct TodayView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        let state = model.restriction
+        let state = model.dashboard
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
-                    AllowanceSummary(state: state)
-                        .padding(.top, EarnlySpacing.xl)
+                    if let hero = state.hero {
+                        HeroBlock(hero: hero, progress: state.progressFraction, tone: state.tone)
+                            .padding(.top, EarnlySpacing.xl)
+                    }
                     statusBlock(state)
                         .padding(.top, EarnlySpacing.lg)
-                    actions(state)
+                    if let primary = state.primary {
+                        EarnlyButton(title: primary.title, trailingSymbol: symbol(for: primary.action)) {
+                            perform(primary.action)
+                        }
+                        .disabled(model.isRetrying)
                         .padding(.top, EarnlySpacing.lg)
+                    }
+                    if state.state == .authorizationRecovery {
+                        Text("Practice sessions open when your selected apps are restricted, which needs Screen Time access.")
+                            .font(EarnlyFont.caption).foregroundStyle(EarnlyColor.inkSecondary)
+                            .padding(.top, EarnlySpacing.sm)
+                    }
 
-                    section { StudyActivitySection(state: state, onTap: { router.select(.progress) }) }
+                    section { StudyActivitySection(earned: model.snapshot?.earnedMinutes, onTap: { router.select(.progress) }) }
                     section { ExamRow(profile: model.profile, onTap: { router.select(.practice) }) }
-                    section { ConfigurationRow(profile: model.profile, onTap: { router.open(.screenTime) }) }
+                    section { ConfigurationRow(policy: model.policy, status: model.monitoringStatus, onTap: { router.open(.screenTime) }) }
                 }
                 .padding(.horizontal, EarnlySpacing.screenMargin)
                 .padding(.bottom, EarnlySpacing.xl)
+                .earnlyAnimation(EarnlyMotion.standard, value: state.state)
             }
             .background(EarnlyColor.canvas)
             .toolbar(.hidden, for: .navigationBar)
@@ -34,13 +47,10 @@ struct TodayView: View {
     private var header: some View {
         HStack {
             EarnlyWordmark(size: 28)
+            if model.isSimulated { EarnlyPreviewTag(text: "Simulated").padding(.leading, EarnlySpacing.xs) }
             Spacer()
-            Button {
-                router.select(.settings)
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.body)
-                    .foregroundStyle(EarnlyColor.ink)
+            Button { router.select(.settings) } label: {
+                Image(systemName: "gearshape").font(.body).foregroundStyle(EarnlyColor.ink)
                     .frame(width: EarnlyGeometry.minTouchTarget, height: EarnlyGeometry.minTouchTarget)
                     .contentShape(Rectangle())
             }
@@ -50,41 +60,36 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func statusBlock(_ state: PreviewRestrictionState) -> some View {
+    private func statusBlock(_ state: DashboardPresentation) -> some View {
         switch state.tone {
         case .neutral:
             VStack(alignment: .leading, spacing: EarnlySpacing.xxs) {
-                Text(state.statusTitle).font(EarnlyFont.bodyEmphasis).foregroundStyle(EarnlyColor.ink)
-                Text(state.statusDetail).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
-                if let progress = state.sessionProgress {
-                    Text(progress).font(EarnlyFont.secondaryEmphasis.monospacedDigit()).foregroundStyle(EarnlyColor.brandText)
+                Text(state.title).font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if !state.detail.isEmpty {
+                    Text(state.detail).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
                 }
             }
         case .success:
-            EarnlyStatusMessage(kind: .success, title: state.statusTitle, text: state.statusDetail)
+            EarnlyStatusMessage(kind: .success, title: state.title, text: state.detail)
         case .warning:
-            EarnlyStatusMessage(kind: .warning, title: state.statusTitle, text: state.statusDetail)
+            EarnlyStatusMessage(kind: .warning, title: state.title, text: state.detail)
         }
     }
 
-    @ViewBuilder
-    private func actions(_ state: PreviewRestrictionState) -> some View {
-        VStack(spacing: EarnlySpacing.xs) {
-            EarnlyButton(title: state.primaryTitle, trailingSymbol: "arrow.right") {
-                perform(state.primaryAction)
-            }
-            if let secondary = state.secondaryPracticeTitle {
-                EarnlyButton(title: secondary, kind: .secondary) { router.startPractice() }
-            }
-        }
-    }
-
-    private func perform(_ action: PreviewRestrictionState.PrimaryAction) {
+    private func symbol(for action: DashboardPresentation.Action) -> String? {
         switch action {
-        case .finishSetup: model.restartOnboarding()
-        case .startPractice: router.startPractice()
-        case .resumePractice: router.startPractice(startingAt: 3)
-        case .reviewPermission: router.open(.permissions)
+        case .retryOperation, .retryRelease: return nil
+        default: return "arrow.right"
+        }
+    }
+
+    private func perform(_ action: DashboardPresentation.Action) {
+        switch action {
+        case .allowAccess, .reviewAccess: router.open(.permissions)
+        case .chooseApps: router.open(.activities)
+        case .startPractice, .resumePractice: router.startPractice()
+        case .retryOperation, .retryRelease: Task { await model.retryPendingOperation() }
         }
     }
 
@@ -97,68 +102,48 @@ struct TodayView: View {
     }
 }
 
-/// Hero allowance display. `--:--` is shown whenever remaining time is unknown.
-struct AllowanceSummary: View {
-    let state: PreviewRestrictionState
+private struct HeroBlock: View {
+    let hero: DashboardPresentation.Hero
+    let progress: Double?
+    let tone: DashboardPresentation.Tone
 
     var body: some View {
         VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
-            HStack {
-                Text("Available screen time").earnlyOverline()
-                Spacer()
-                EarnlyPreviewTag()
-            }
-            Text(state.remainingText)
+            Text(hero.overline).earnlyOverline()
+            Text(hero.value)
                 .earnlyHeroNumber()
-                .foregroundStyle(state.remainingSeconds == nil ? EarnlyColor.inkSecondary : EarnlyColor.ink)
+                .foregroundStyle(EarnlyColor.ink)
                 .contentTransition(.numericText())
-                .accessibilityLabel(state.accessibilityRemaining)
-            EarnlyProgressBar(
-                value: state.remainingFraction,
-                tone: state.tone == .success ? .success : .brand,
-                accessibilityLabel: "Allowance remaining")
-                .padding(.top, EarnlySpacing.xxs)
-            Text(caption)
-                .font(EarnlyFont.secondary)
-                .foregroundStyle(EarnlyColor.inkSecondary)
+            if let progress {
+                EarnlyProgressBar(value: progress, tone: tone == .success ? .success : .brand,
+                                  accessibilityLabel: "Session progress")
+                    .padding(.top, EarnlySpacing.xxs)
+            }
+            Text(hero.caption).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
         }
-        .accessibilityElement(children: .contain)
-    }
-
-    private var caption: String {
-        state.remainingSeconds == nil
-            ? "Remaining time isn't available right now."
-            : "of your \(state.allowanceSeconds / 60)-minute allowance. Sample value; updates when you open Earnly."
+        .accessibilityElement(children: .combine)
     }
 }
 
 private struct StudyActivitySection: View {
-    let state: PreviewRestrictionState
+    let earned: Int?
     let onTap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: EarnlySpacing.md) {
             EarnlySectionHeader("Your study activity")
-            if let questions = state.questionsToday {
-                HStack(alignment: .top, spacing: EarnlySpacing.xl) {
-                    stat("\(questions)", "Questions")
-                    stat(state.minutesEarnedToday.map { "\($0)m" } ?? "--", "Time earned")
-                    Spacer(minLength: 0)
+            if let earned, earned > 0 {
+                VStack(alignment: .leading, spacing: EarnlySpacing.xxs) {
+                    Text("\(earned)m").font(EarnlyFont.stat).foregroundStyle(EarnlyColor.ink)
+                    Text("Time earned in total").font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
                 }
+                .accessibilityElement(children: .combine)
             } else {
                 Text("No practice yet. Your first set will show up here.")
                     .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
             }
         }
         .accessibilityElement(children: .contain)
-    }
-
-    private func stat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: EarnlySpacing.xxs) {
-            Text(value).font(EarnlyFont.stat).foregroundStyle(EarnlyColor.ink)
-            Text(label).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -187,7 +172,8 @@ private struct ExamRow: View {
 }
 
 private struct ConfigurationRow: View {
-    let profile: PreviewStudyProfile
+    let policy: PolicySummary
+    let status: MonitoringStatus
     let onTap: () -> Void
 
     var body: some View {
@@ -195,7 +181,9 @@ private struct ConfigurationRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: EarnlySpacing.xxs) {
                     Text("Screen-time rules").font(EarnlyFont.secondaryEmphasis).foregroundStyle(EarnlyColor.ink)
-                    Text(profile.configurationSummary).font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+                    Text("\(policy.allowanceMinutes)-minute allowance · \(policy.requiredQuestions) questions = \(policy.rewardMinutes) minutes")
+                        .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+                    Text(status.text).font(EarnlyFont.caption).foregroundStyle(EarnlyColor.inkSecondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.body.weight(.medium)).foregroundStyle(EarnlyColor.inkSecondary)
@@ -210,32 +198,13 @@ private struct ConfigurationRow: View {
     }
 }
 
-#Preview("Today: available") {
-    TodayView()
-        .environment(PreviewAppModel.previewMain)
-        .environment(AppRouter())
+#if DEBUG
+@MainActor private func previewToday(_ fixture: DevelopmentFixture) -> some View {
+    let model = AppModel(service: DevelopmentScreenTimeService(fixture: fixture, latency: .zero), profile: .sample, hasCompletedOnboarding: true, defaults: nil)
+    return TodayView().environment(model).environment(AppRouter()).task { await model.refreshSnapshot() }
 }
-
-#Preview("Today: practice required") {
-    let model = PreviewAppModel.previewMain
-    model.dashboardState = .practiceRequired
-    return TodayView().environment(model).environment(AppRouter())
-}
-
-#Preview("Today: first launch") {
-    let model = PreviewAppModel.previewMain
-    model.dashboardState = .firstLaunchIncomplete
-    return TodayView().environment(model).environment(AppRouter())
-}
-
-#Preview("Today: authorization unavailable") {
-    let model = PreviewAppModel.previewMain
-    model.dashboardState = .authorizationUnavailable
-    return TodayView().environment(model).environment(AppRouter())
-}
-
-#Preview("Today: earned, dark") {
-    let model = PreviewAppModel.previewMain
-    model.dashboardState = .earned
-    return TodayView().environment(model).environment(AppRouter()).preferredColorScheme(.dark)
-}
+#Preview("Today: allowance active") { previewToday(.allowanceActive) }
+#Preview("Today: restricted") { previewToday(.thresholdReached) }
+#Preview("Today: release failed") { previewToday(.releaseFailure) }
+#Preview("Today: authorization denied") { previewToday(.authorizationDenied) }
+#endif

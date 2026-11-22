@@ -1,9 +1,9 @@
 import SwiftUI
 
-private let devNote = "Development only: changes last until you quit the app and aren't saved."
+private let devNote = "Exam choices aren't saved yet. They will be stored with your study profile."
 
 struct ExamPreferencesView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         List {
@@ -52,40 +52,51 @@ struct ExamPreferencesView: View {
 }
 
 struct ScreenTimeSettingsView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var profile = model.profile
-        List {
-            Section {
-                Picker("Starting allowance", selection: $profile.allowanceMinutes) {
-                    Text("10 minutes").tag(10)
-                    Text("15 minutes").tag(15)
+        ScrollView {
+            VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
+                Text("Starting allowance").font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
+                AllowancePicker()
+                Text("This is how much time you can use before your selected apps pause. It isn't a measure of time left.")
+                    .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+                if model.snapshot?.stage == .configuring {
+                    EarnlyStatusMessage(kind: .info, title: "Updating", text: "The new allowance is active once monitoring is confirmed.")
                 }
-                .pickerStyle(.inline)
-            } footer: { Text(devNote) }
-            Section {
-                Text("App selection uses Apple's picker and is connected in Phase 2.")
-                    .foregroundStyle(EarnlyColor.inkSecondary)
-            } header: { Text("Selected apps") }
+            }
+            .padding(EarnlySpacing.screenMargin)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("Screen time")
-        .navigationBarTitleDisplayMode(.inline)
-        .scrollContentBackground(.hidden)
         .background(EarnlyColor.canvas)
+        .navigationTitle("Allowance")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct ActivitySelectionSettingsView: View {
+    var body: some View {
+        ScrollView {
+            ActivitySelectionPanel()
+                .padding(EarnlySpacing.screenMargin)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(EarnlyColor.canvas)
+        .navigationTitle("Selected apps")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 struct RewardSettingsView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         List {
             Section {
-                LabeledContent("Questions per set", value: "\(model.profile.rewardQuestions)")
-                LabeledContent("Minutes earned", value: "\(model.profile.rewardMinutes)")
+                LabeledContent("Questions per set", value: "\(model.policy.requiredQuestions)")
+                LabeledContent("Minutes earned", value: "\(model.policy.rewardMinutes)")
             } footer: {
-                Text("Fixed in this prototype. These values become configurable once the systems layer is connected.")
+                Text("The standard rule: finish the set to earn the minutes. These two values are set separately and can't be edited yet.")
             }
         }
         .navigationTitle("Reward rule")
@@ -96,39 +107,75 @@ struct RewardSettingsView: View {
 }
 
 struct PermissionsView: View {
-    @Environment(PreviewAppModel.self) private var model
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
+                AuthorizationExplainer()
+                EarnlyDivider()
+                AuthorizationStatusView()
+                AuthorizationAction()
+            }
+            .padding(EarnlySpacing.screenMargin)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(EarnlyColor.canvas)
+        .navigationTitle("Screen Time access")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Status and the supported way to turn Earnly's restrictions off.
+struct MonitoringControlsView: View {
+    @Environment(AppModel.self) private var model
+    @State private var confirming = false
 
     var body: some View {
-        List {
-            Section {
-                LabeledContent("Screen Time access", value: model.authorization.label)
-            }
-            if model.authorization == .simulatedGranted {
-                Section {
-                    EarnlyStatusMessage(
-                        kind: .development, title: "Development mode",
-                        text: "Access is simulated. Earnly has no real Screen Time permission and restricts no apps.")
-                        .listRowInsets(.init())
-                        .listRowBackground(Color.clear)
+        ScrollView {
+            VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
+                let status = model.monitoringStatus
+                EarnlyStatusMessage(
+                    kind: status.kind == .on ? .success : (status.kind == .pending ? .info : .warning),
+                    title: "Status", text: status.text)
+
+                VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
+                    Text("Turn off restrictions").font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
+                    Text("Removes Earnly's restrictions and stops monitoring. Your earned time and history are kept. To turn Earnly back on, you'll choose your apps again.")
+                        .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                changeStatus
+
+                EarnlyButton(title: "Turn off restrictions", kind: .secondary) { confirming = true }
+                    .disabled(!canDisable)
             }
-            Section {
-                Button("Request access (development simulation)") { model.requestAuthorization() }
-                    .frame(minHeight: EarnlyGeometry.minTouchTarget)
-                Button("Simulate declined") { model.requestAuthorization(simulating: .denied) }
-                    .frame(minHeight: EarnlyGeometry.minTouchTarget)
-                Button("Reset to not requested", role: .destructive) { model.requestAuthorization(simulating: .notDetermined) }
-                    .frame(minHeight: EarnlyGeometry.minTouchTarget)
-            } header: {
-                Text("Development")
-            } footer: {
-                Text("Real authorization is connected in Phase 2. You can also change it later in iOS Settings.")
-            }
+            .padding(EarnlySpacing.screenMargin)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("Permissions")
-        .navigationBarTitleDisplayMode(.inline)
-        .scrollContentBackground(.hidden)
         .background(EarnlyColor.canvas)
+        .navigationTitle("Monitoring")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Turn off Earnly's restrictions?", isPresented: $confirming, titleVisibility: .visible) {
+            Button("Turn off restrictions", role: .destructive) { Task { await model.disableRestrictions() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your selected apps will no longer be restricted by Earnly.")
+        }
+    }
+
+    private var canDisable: Bool {
+        if case .applying = model.change { return false }
+        return model.snapshot?.selection != nil
+    }
+
+    @ViewBuilder
+    private var changeStatus: some View {
+        switch model.change {
+        case .idle: EmptyView()
+        case .applying(let text): Text("\(text)…").font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+        case .failed(let failure):
+            EarnlyStatusMessage(kind: .warning, title: "Restrictions are still on", text: failure.userMessage)
+        }
     }
 }
 
@@ -158,8 +205,8 @@ struct PrivacyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: EarnlySpacing.lg) {
-                paragraph("This prototype stores nothing", "Your selections live in memory and disappear when the app closes. Nothing is sent anywhere.")
-                paragraph("Screen Time and your apps", "When connected, Apple's Screen Time system will manage restrictions on your device. Earnly won't see the content of other apps.")
+                paragraph("What Earnly keeps", "Earnly keeps your practice history and settings on this device. Your app selection is stored by Apple and isn't readable by Earnly.")
+                paragraph("Screen Time and your apps", "Apple's Screen Time system manages restrictions on your device. Earnly doesn't see what you do in other apps.")
                 paragraph("Full policy", "A complete privacy policy will be linked here before release.")
             }
             .padding(EarnlySpacing.screenMargin)
@@ -190,7 +237,7 @@ struct AboutView: View {
                 .padding(.vertical, EarnlySpacing.xs)
             }
             Section {
-                LabeledContent("Version", value: "0.1.0 (Phase 1 prototype)")
+                LabeledContent("Version", value: "0.2.0")
             }
         }
         .navigationTitle("About")
@@ -200,31 +247,36 @@ struct AboutView: View {
     }
 }
 
+#if DEBUG
 struct DevelopmentView: View {
-    @Environment(PreviewAppModel.self) private var model
+    @Environment(AppModel.self) private var model
+    @Environment(AppRouter.self) private var router
+    @State private var failRelease = false
 
     var body: some View {
-        @Bindable var model = model
         List {
             Section {
-                Picker("Today state", selection: $model.dashboardState) {
-                    ForEach(PreviewDashboardState.allCases) { state in
-                        Text(state.title).tag(state)
+                EarnlyStatusMessage(kind: .development, title: "Simulated state",
+                                    text: "These fixtures replace live state with deterministic test data. Nothing here reflects real Screen Time.")
+                    .listRowInsets(.init()).listRowBackground(Color.clear)
+            }
+            Section("Fixtures") {
+                ForEach(DevelopmentFixture.allCases) { fixture in
+                    Button(fixture.title) {
+                        Task {
+                            await model.applyFixture(fixture)
+                            router.select(.today)
+                        }
                     }
+                    .foregroundStyle(EarnlyColor.ink)
+                    .frame(minHeight: EarnlyGeometry.minTouchTarget)
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
-            } header: {
-                Text("Today dashboard state")
-            } footer: {
-                Text("Overrides the Today screen with deterministic sample data.")
             }
             Section {
-                Toggle("Show demo progress data", isOn: $model.showsDemoProgress)
+                Toggle("Fail the next release", isOn: $failRelease)
+                    .onChange(of: failRelease) { _, on in (model.service as? DevelopmentScreenTimeService)?.failNextRelease = on }
                     .frame(minHeight: EarnlyGeometry.minTouchTarget)
-            } footer: {
-                Text("Turn off to see the empty Progress state.")
-            }
+            } footer: { Text("The next shield release reports a failure, then succeeds on retry.") }
             Section {
                 Button("Restart onboarding", role: .destructive) { model.restartOnboarding() }
                     .frame(minHeight: EarnlyGeometry.minTouchTarget)
@@ -236,3 +288,4 @@ struct DevelopmentView: View {
         .background(EarnlyColor.canvas)
     }
 }
+#endif
