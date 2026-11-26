@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BE0CD5C0E84F61E9A1302CC3 /* EarnlySystems in Frameworks */ = {isa = PBXBuildFile; productRef = BE0CD5C0E84F61E9A1302CC5 /* EarnlySystems */; };
 		0182B4608C3200E4A7C7877E /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4F91A377816991B7F3E924 /* MainTabView.swift */; };
 		02F0B8752A0E89D218FF18CE /* EarnlyMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099A9AD4C99D8495EB21B40E /* EarnlyMotion.swift */; };
 		07DD56668C0593356386ECFD /* ActivitySelectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0485FDEF024F932F4E6014B2 /* ActivitySelectionPanel.swift */; };
@@ -136,13 +137,13 @@
 		203576067AC456764C4A8E8F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		25BF9A04E53C23150494EA75 /* EarnlyGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyGeometry.swift; sourceTree = "<group>"; };
 		2717A6338B8AB9486AA53E26 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2901E0C48ED7A5CBBF0949AA /* EarnlyShieldConfiguration.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = EarnlyShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2901E0C48ED7A5CBBF0949AA /* EarnlyShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EarnlyShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		31AA7CED4CB93BA154AEC5CC /* DashboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationTests.swift; sourceTree = "<group>"; };
 		31B65E3083C65ED481103B69 /* EarnlyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyApp.swift; sourceTree = "<group>"; };
 		32E815DF696F2A56597C04DD /* SettingsDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDetailViews.swift; sourceTree = "<group>"; };
 		3E82659D0869B21488ED5A0E /* EarnlyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyButton.swift; sourceTree = "<group>"; };
 		4C983AE783028477B43D093E /* DevelopmentScreenTimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevelopmentScreenTimeService.swift; sourceTree = "<group>"; };
-		50987B79A770B728304C6DDE /* EarnlyUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EarnlyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		50987B79A770B728304C6DDE /* EarnlyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EarnlyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A0028AE5D5BF29EFB32CD84 /* PracticeSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeSessionView.swift; sourceTree = "<group>"; };
 		63E4A9EF81595780C8414CAF /* NativeScreenTimeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenTimeIntegrationTests.swift; sourceTree = "<group>"; };
 		6B4F91A377816991B7F3E924 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -158,10 +159,10 @@
 		8E8DC1B69ECD556B6E140D76 /* HowItWorksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowItWorksStep.swift; sourceTree = "<group>"; };
 		94C9F8C482585C4439C182F0 /* PracticeComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeComponents.swift; sourceTree = "<group>"; };
 		9B716C29D9E1B82526F09A3A /* EarnlySelectionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlySelectionRow.swift; sourceTree = "<group>"; };
-		9C7068D783E5627742450402 /* Earnly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Earnly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C7068D783E5627742450402 /* Earnly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Earnly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9E3E94CD2E3403C728C6F852 /* DashboardPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentation.swift; sourceTree = "<group>"; };
 		A0EAEA59796982C62C668848 /* OnboardingFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlowView.swift; sourceTree = "<group>"; };
-		A6A0878AA12FC5D273716A3E /* EarnlyShieldAction.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = EarnlyShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6A0878AA12FC5D273716A3E /* EarnlyShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EarnlyShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE04521239F018FFC83AC94D /* EarnlyWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyWordmark.swift; sourceTree = "<group>"; };
 		B5A93DA9AA83754B6480055C /* AllowancePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowancePicker.swift; sourceTree = "<group>"; };
 		B6A1152547E0852C2D8FFB11 /* ScreenTimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenTimeService.swift; sourceTree = "<group>"; };
@@ -182,15 +183,23 @@
 		EABE90B68F24F784B4920AE4 /* ProgressOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressOverviewView.swift; sourceTree = "<group>"; };
 		EB37322C9B6F19E3D39BF8AE /* EarnlyShieldAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyShieldAction.swift; sourceTree = "<group>"; };
 		F35757945DB95015CC183E59 /* MonitoringStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoringStatus.swift; sourceTree = "<group>"; };
-		F6E5B691DE705CCB8DF8E619 /* EarnlyTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EarnlyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6E5B691DE705CCB8DF8E619 /* EarnlyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EarnlyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F839873772E9D13344D964BA /* PersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceTests.swift; sourceTree = "<group>"; };
 		F93D6E3FB93ADC220FA29681 /* EarnlyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyUITests.swift; sourceTree = "<group>"; };
 		F9D3E2036CD080F49881A0FB /* EarnlyProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnlyProgressBar.swift; sourceTree = "<group>"; };
 		FDBCE4039099EFB005329DF9 /* LifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleTests.swift; sourceTree = "<group>"; };
-		FF685EBB96C2C9D06664A62F /* EarnlyDeviceActivityMonitor.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = EarnlyDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF685EBB96C2C9D06664A62F /* EarnlyDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EarnlyDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		BE0CD5C0E84F61E9A1302CC4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE0CD5C0E84F61E9A1302CC3 /* EarnlySystems in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		151A7ECA27776A910EE234E6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -564,6 +573,7 @@
 			buildConfigurationList = 7FFD9878552FF39344C96DC3 /* Build configuration list for PBXNativeTarget "EarnlyShieldConfiguration" */;
 			buildPhases = (
 				04E60A468EE8CF5CB63DBA33 /* Sources */,
+				BE0CD5C0E84F61E9A1302CC4 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -571,6 +581,7 @@
 			);
 			name = EarnlyShieldConfiguration;
 			packageProductDependencies = (
+				BE0CD5C0E84F61E9A1302CC5 /* EarnlySystems */,
 			);
 			productName = EarnlyShieldConfiguration;
 			productReference = 2901E0C48ED7A5CBBF0949AA /* EarnlyShieldConfiguration.appex */;
@@ -881,7 +892,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = EarnlyExtensions/FamilyControls.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = EarnlyExtensions/FamilyControlsAppGroup.entitlements;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EarnlyExtensions/ShieldConfiguration/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -902,7 +913,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = EarnlyExtensions/FamilyControls.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = EarnlyExtensions/FamilyControlsAppGroup.entitlements;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EarnlyExtensions/ShieldConfiguration/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1276,6 +1287,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		BE0CD5C0E84F61E9A1302CC5 /* EarnlySystems */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EarnlySystems;
+		};
 		094793D865C0A73AF0AB7112 /* EarnlySystems */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = EarnlySystems;

@@ -83,7 +83,7 @@ struct ActivitySelectionPanel: View {
     private var caution: some View {
         Text(model.isSimulated
              ? "Choosing a whole category can include many apps. Pick only what pulls you away from studying."
-             : "Choose individual apps or websites. Earnly needs to verify that your selection leaves Earnly accessible.")
+             : "Choose individual apps or websites and leave Earnly unselected.")
             .font(EarnlyFont.caption).foregroundStyle(EarnlyColor.inkSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }

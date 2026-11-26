@@ -3,6 +3,43 @@ import Testing
 @testable import EarnlySystems
 
 struct NativeScreenTimeTests {
+    @Test func recoveryExcludesOnlyTheHostTokenOrTheAffectedAppSelection() throws {
+        let selectionID = UUID()
+        let apps: Set<Int> = [1, 2]
+        let identified = HostShieldExclusion(selectionID: selectionID, opaqueToken: Data([1]))
+        let unidentified = HostShieldExclusion(selectionID: selectionID, opaqueToken: nil)
+        let decode: (Data) throws -> Int = { Int(try #require($0.first)) }
+
+        #expect(try identified.applicationsToShield(apps, selectionID: selectionID, decode: decode) == [2])
+        #expect(try unidentified.applicationsToShield(apps, selectionID: selectionID, decode: decode).isEmpty)
+        #expect(try unidentified.applicationsToShield(apps, selectionID: UUID(), decode: decode) == apps)
+    }
+
+    @Test(arguments: [InitialAllowance.one, .five])
+    func shortAllowancesRegisterAndRestrictAtTheSelectedThreshold(_ allowance: InitialAllowance) async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (system, coordinator) = try fixture.open()
+        let policy = try ScreenTimePolicy(initialAllowance: allowance)
+        try await coordinator.configure(policy: policy, selection: fixture.selection)
+        let registration = try fixture.registration()
+
+        #expect(registration.minutes == allowance.rawValue)
+        #expect(registration.end.timeIntervalSince(registration.start) >= 15 * 60)
+        #expect(registration.releaseConfirmed)
+        #expect(fixture.backend.shieldStatus() == .clear)
+
+        try fixture.threshold(registration)
+        #expect(fixture.backend.shieldStatus() == .applied)
+        try await coordinator.activate()
+        #expect(await system.dashboard().mostRecentThresholdMinutes == .available(allowance.rawValue, provenance: .observed))
+        let completed = try await fixture.complete(system)
+        let credit = try await coordinator.finishPractice(sessionID: completed.id)
+        #expect(credit.earnedMinutes == 10)
+        #expect(try fixture.registration().minutes == 10)
+        #expect(fixture.backend.shieldStatus() == .clear)
+    }
+
     @Test func initialAllowancePreferenceCanBeSavedBeforeAuthorizationAndSelection() async throws {
         let fixture = NativeFixture()
         defer { fixture.remove() }
@@ -398,7 +435,7 @@ private final class FakeScreenTimeBackend: ScreenTimeBackend, @unchecked Sendabl
         }
     }
 
-    func apply(_ selection: StoredActivitySelection) { lock.withLock { shield = .applied } }
+    func apply(_ selection: StoredActivitySelection, excludingHost: HostShieldExclusion?) { lock.withLock { shield = .applied } }
 
     func clear() throws {
         try lock.withLock {

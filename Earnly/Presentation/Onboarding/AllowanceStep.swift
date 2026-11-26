@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Screen 4: starting allowance (10 or 15 minutes) and the reward rule from policy.
+/// Screen 4: starting allowance and the reward rule from policy.
 struct AllowanceStep: View {
     @Environment(AppModel.self) private var model
 

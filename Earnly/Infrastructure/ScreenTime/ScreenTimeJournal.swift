@@ -10,6 +10,23 @@ struct StoredActivitySelection: Codable, Equatable, Sendable {
     let opaqueSelection: Data
 }
 
+/// The shield extension learns this only from a callback for Earnly itself.
+struct HostShieldExclusion: Codable, Equatable, Sendable {
+    let selectionID: UUID
+    let opaqueToken: Data?
+
+    func applicationsToShield<Token: Hashable>(
+        _ selected: Set<Token>, selectionID: UUID, decode: (Data) throws -> Token
+    ) throws -> Set<Token> {
+        if let opaqueToken {
+            return selected.subtracting([try decode(opaqueToken)])
+        }
+        // If the system identifies Earnly but omits its token, suspend app shields
+        // for the affected selection. A new selection can still shield apps.
+        return self.selectionID == selectionID ? [] : selected
+    }
+}
+
 struct MonitoringRegistration: Codable, Equatable, Sendable {
     let cycleID: UUID
     let selectionID: UUID
@@ -34,6 +51,7 @@ struct ScreenTimeRecord: Codable, Equatable, Sendable {
     var selection: StoredActivitySelection?
     var registration: MonitoringRegistration?
     var retiring = false
+    var hostShieldExclusion: HostShieldExclusion?
 
     var isValid: Bool {
         guard selection?.summary.isValid != false, selection?.opaqueSelection.isEmpty != true else { return false }

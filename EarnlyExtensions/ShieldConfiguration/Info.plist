@@ -18,6 +18,10 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>EarnlyAppGroupIdentifier</key>
+	<string>$(EARNLY_APP_GROUP_ID)</string>
+	<key>EarnlyHostBundleIdentifier</key>
+	<string>$(EARNLY_HOST_BUNDLE_ID)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

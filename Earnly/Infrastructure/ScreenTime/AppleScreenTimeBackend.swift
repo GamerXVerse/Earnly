@@ -9,13 +9,6 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
     let hostBundleIdentifier: String
     private static let logger = Logger(subsystem: "EarnlySystems", category: "DeviceActivity")
 
-    static var hasAuthorization: Bool {
-        switch AuthorizationCenter.shared.authorizationStatus {
-        case .approved, .approvedWithDataAccess: true
-        default: false
-        }
-    }
-
     private struct OpaqueTokens: Codable {
         let applications: Set<ApplicationToken>
         let webDomains: Set<WebDomainToken>
@@ -23,8 +16,16 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
 
     private var store: ManagedSettingsStore { ManagedSettingsStore(named: .init("earnly.entertainment")) }
 
-    func selectionRecord(_ selection: FamilyActivitySelection) throws -> StoredActivitySelection {
-        let safe = try validatedSelection(selection)
+    func selectionRecord(_ selection: FamilyActivitySelection, excludingHost: HostShieldExclusion?) throws
+        -> StoredActivitySelection {
+        var safe = selection
+        guard safe.categoryTokens.isEmpty else { throw ScreenTimeServiceError.unsafeSelection }
+        if let token = Self.hostToken(from: excludingHost) ?? Application(bundleIdentifier: hostBundleIdentifier).token {
+            safe.applicationTokens.remove(token)
+        }
+        guard !safe.applicationTokens.isEmpty || !safe.webDomainTokens.isEmpty else {
+            throw ScreenTimeServiceError.invalidSelection
+        }
         let summary = ActivitySelection(
             id: UUID(), applicationCount: safe.applicationTokens.count,
             categoryCount: safe.categoryTokens.count, webDomainCount: safe.webDomainTokens.count
@@ -42,24 +43,45 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
         var selection = FamilyActivitySelection()
         selection.applicationTokens = tokens.applications
         selection.webDomainTokens = tokens.webDomains
-        return try validatedSelection(selection)
+        return selection
     }
 
-    private func validatedSelection(_ selection: FamilyActivitySelection) throws -> FamilyActivitySelection {
-        // DeviceActivityEvent has no per-app category exclusion. Do not enable broad category
-        // monitoring, even if ManagedSettings could exclude our token from the resulting shield.
-        guard selection.categoryTokens.isEmpty else { throw ScreenTimeServiceError.unsafeSelection }
-        var safe = selection
-        if !safe.applicationTokens.isEmpty {
-            guard let ownToken = Application(bundleIdentifier: hostBundleIdentifier).token else {
-                throw ScreenTimeServiceError.unsafeSelection
+    static func hostToken(from exclusion: HostShieldExclusion?) -> ApplicationToken? {
+        guard let data = exclusion?.opaqueToken else { return nil }
+        return try? JSONDecoder().decode(ApplicationToken.self, from: data)
+    }
+
+    /// The shield callback can identify Earnly by its bundle ID. Remember its token
+    /// when provided, then remove the shield without allowing the monitor to reapply it.
+    func recoverHostShield(for application: Application, journal: ScreenTimeJournal?) -> Bool {
+        guard application.bundleIdentifier == hostBundleIdentifier else { return false }
+
+        let token = application.token
+        if let journal {
+            do {
+                try journal.update { record in
+                    if let selection = record.selection, !record.retiring {
+                        record.hostShieldExclusion = HostShieldExclusion(
+                            selectionID: selection.summary.id, opaqueToken: try token.map { try JSONEncoder().encode($0) }
+                        )
+                    }
+                    removeHostShield(token)
+                }
+                return true
+            } catch {
+                Self.logger.error("Could not record Earnly shield recovery")
             }
-            safe.applicationTokens.remove(ownToken)
         }
-        guard !safe.applicationTokens.isEmpty || !safe.webDomainTokens.isEmpty else {
-            throw ScreenTimeServiceError.invalidSelection
-        }
-        return safe
+        // Restoring access to Earnly also works if the shared container is temporarily unavailable.
+        removeHostShield(token)
+        return true
+    }
+
+    private func removeHostShield(_ token: ApplicationToken?) {
+        let store = store
+        guard let current = store.shield.applications else { return }
+        let remaining = token.map { current.subtracting([$0]) } ?? []
+        store.shield.applications = remaining.isEmpty ? nil : remaining
     }
 
     func install(_ registration: MonitoringRegistration, selection: StoredActivitySelection) throws {
@@ -113,10 +135,18 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
         guard !center.activities.contains(where: obsolete.contains) else { throw ScreenTimeServiceError.monitoringFailed }
     }
 
-    func apply(_ record: StoredActivitySelection) throws {
-        guard Self.hasAuthorization else { throw ScreenTimeServiceError.unavailable }
+    func apply(_ record: StoredActivitySelection, excludingHost: HostShieldExclusion?) throws {
         let selection = try selection(from: record)
-        let apps = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+        var allowed = selection.applicationTokens
+        if let excludingHost {
+            allowed = try excludingHost.applicationsToShield(allowed, selectionID: record.summary.id) {
+                try JSONDecoder().decode(ApplicationToken.self, from: $0)
+            }
+        }
+        if let token = Application(bundleIdentifier: hostBundleIdentifier).token {
+            allowed.remove(token)
+        }
+        let apps = allowed.isEmpty ? nil : allowed
         let web = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
         let store = store
         store.shield.applications = apps

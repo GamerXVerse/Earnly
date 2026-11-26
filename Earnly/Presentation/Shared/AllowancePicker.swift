@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 10 or 15 minute allowance as full-width radio rows. Pure selection: the caller decides
+/// Allowance options as full-width radio rows. The caller decides
 /// when the choice is applied (onboarding applies at once, Settings applies on Save).
 struct AllowancePicker: View {
     @Binding var selection: Int
@@ -10,7 +10,7 @@ struct AllowancePicker: View {
         VStack(spacing: EarnlySpacing.sm) {
             ForEach(PolicySummary.allowanceOptions, id: \.self) { minutes in
                 EarnlySelectionRow(
-                    title: "\(minutes) minutes", isSelected: selection == minutes, indicator: .radio
+                    title: minutes == 1 ? "1 minute" : "\(minutes) minutes", isSelected: selection == minutes, indicator: .radio
                 ) { selection = minutes }
                 .disabled(isDisabled)
             }

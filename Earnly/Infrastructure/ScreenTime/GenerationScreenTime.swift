@@ -6,7 +6,7 @@ protocol ScreenTimeBackend: Sendable {
     func install(_ registration: MonitoringRegistration, selection: StoredActivitySelection) throws
     func contains(_ registration: MonitoringRegistration, selection: StoredActivitySelection) throws -> Bool
     func stopOthers(keeping name: String?) throws
-    func apply(_ selection: StoredActivitySelection) throws
+    func apply(_ selection: StoredActivitySelection, excludingHost: HostShieldExclusion?) throws
     func clear() throws
     func shieldStatus() -> ShieldStatus
 }
@@ -107,7 +107,7 @@ struct GenerationScreenTime: Sendable {
             if let active = record.registration, active.cycleID != cycleID {
                 throw ScreenTimeServiceError.unknownCycle
             }
-            try backend.apply(stored)
+            try backend.apply(stored, excludingHost: record.hostShieldExclusion)
         }
     }
 
@@ -129,7 +129,7 @@ struct GenerationScreenTime: Sendable {
         try journal.update { record in
             guard !record.retiring, let active = record.registration, active.cycleID == cycleID,
                   active.threshold != nil, let selection = record.selection else { return }
-            try backend.apply(selection)
+            try backend.apply(selection, excludingHost: record.hostShieldExclusion)
         }
     }
 
@@ -148,7 +148,7 @@ struct GenerationScreenTime: Sendable {
         try journal.update { record in
             guard !record.retiring, let active = record.registration, active.cycleID == cycleID,
                   active.expired, let selection = record.selection else { return }
-            try backend.apply(selection)
+            try backend.apply(selection, excludingHost: record.hostShieldExclusion)
         }
     }
 

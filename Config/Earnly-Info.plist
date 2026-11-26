@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>EarnlyAppGroupIdentifier</key>
-    <string>$(EARNLY_APP_GROUP_ID)</string>
+	<key>EarnlyAppGroupIdentifier</key>
+	<string>$(EARNLY_APP_GROUP_ID)</string>
 </dict>
 </plist>

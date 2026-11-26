@@ -1,3 +1,4 @@
+import EarnlySystems
 import Foundation
 
 // Presentation-facing value types. Each mirrors a concept owned by the systems
@@ -39,7 +40,7 @@ struct PolicySummary: Equatable {
     var rewardMinutes: Int
     var isEnabled: Bool = true
 
-    static let allowanceOptions = [10, 15]
+    static let allowanceOptions = InitialAllowance.allCases.map(\.rawValue)
     static let standard = PolicySummary(allowanceMinutes: 10, requiredQuestions: 10, rewardMinutes: 10)
 }
 

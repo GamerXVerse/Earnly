@@ -20,6 +20,8 @@ public struct StudyProfile: Codable, Equatable, Sendable {
 }
 
 public enum InitialAllowance: Int, Codable, CaseIterable, Sendable {
+    case one = 1
+    case five = 5
     case ten = 10
     case fifteen = 15
 }

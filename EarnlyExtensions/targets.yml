@@ -31,8 +31,12 @@ targets:
     sources:
       - path: ShieldConfiguration
         excludes: [Info.plist]
+    dependencies:
+      - package: EarnlySystems
+        product: EarnlySystems
     settings:
       base:
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
         INFOPLIST_FILE: EarnlyExtensions/ShieldConfiguration/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).ShieldConfiguration
 

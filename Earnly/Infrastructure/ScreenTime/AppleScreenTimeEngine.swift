@@ -1,6 +1,7 @@
 #if os(iOS) && !targetEnvironment(macCatalyst)
 import FamilyControls
 import Foundation
+import ManagedSettings
 
 /// Main-actor entry point for the host and the system picker. Platform effects are serialized
 /// by the coordinator. Use a private host URL for learning history and the registered App Group
@@ -39,8 +40,13 @@ public final class AppleScreenTimeEngine {
 
     /// Read a draft for FamilyActivityPicker. A cancelled draft never reaches configure.
     public func pickerSelection() throws -> FamilyActivitySelection {
-        guard let record = try journal.read().selection else { return FamilyActivitySelection() }
-        return try backend.selection(from: record)
+        let current = try journal.read()
+        guard let record = current.selection else { return FamilyActivitySelection() }
+        var selection = try backend.selection(from: record)
+        if let token = AppleScreenTimeBackend.hostToken(from: current.hostShieldExclusion) {
+            selection.applicationTokens.remove(token)
+        }
+        return selection
     }
 
     public func setUnconfiguredAllowance(_ allowance: InitialAllowance) async throws {
@@ -49,7 +55,7 @@ public final class AppleScreenTimeEngine {
 
     public func configure(policy: ScreenTimePolicy, selection: FamilyActivitySelection) async throws {
         guard #available(iOS 17.4, *) else { throw ScreenTimeServiceError.unsupportedOS }
-        let stored = try backend.selectionRecord(selection)
+        let stored = try backend.selectionRecord(selection, excludingHost: journal.read().hostShieldExclusion)
         try await coordinator.configure(policy: policy, selection: stored)
     }
 
@@ -62,6 +68,16 @@ public final class AppleScreenTimeEngine {
     public func disable() async throws { try await coordinator.disable() }
 }
 
+/// Called by the existing Shield Configuration extension if iOS shields Earnly itself.
+public enum AppleHostShieldRecovery {
+    public static func recover(_ application: Application, appGroupIdentifier: String, hostBundleIdentifier: String)
+        -> Bool {
+        guard application.bundleIdentifier == hostBundleIdentifier else { return false }
+        let backend = AppleScreenTimeBackend(hostBundleIdentifier: hostBundleIdentifier)
+        return backend.recoverHostShield(for: application, journal: try? AppleScreenTimeContainer.journal(group: appGroupIdentifier))
+    }
+}
+
 enum AppleScreenTimeContainer {
     static func journal(group: String) throws -> ScreenTimeJournal {
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else {
@@ -72,6 +88,9 @@ enum AppleScreenTimeContainer {
 }
 
 /// Synchronous entry points keep extension work within the framework callback lifetime.
+/// The host reconciles Family Controls authorization before configuring monitoring.
+/// A fresh monitor process uses the system callback and the journal's generation
+/// check. AuthorizationCenter's initial value is not a reliable gate in this process.
 public struct AppleScreenTimeMonitorBridge: Sendable {
     private let platform: GenerationScreenTime
 
@@ -83,12 +102,10 @@ public struct AppleScreenTimeMonitorBridge: Sendable {
     }
 
     public func thresholdReached(activity: String, event: String) throws {
-        guard AppleScreenTimeBackend.hasAuthorization else { return }
         try platform.threshold(activity: activity, event: event, reachedAt: Date())
     }
 
     public func intervalEnded(activity: String) throws {
-        guard AppleScreenTimeBackend.hasAuthorization else { return }
         try platform.expire(activity: activity)
     }
 }
