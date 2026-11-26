@@ -65,6 +65,10 @@ final class AppModel {
         }
     }
 
+    var canRefreshExistingAuthorization: Bool {
+        snapshot?.authorization == .unavailable && snapshot?.selection != nil
+    }
+
     var policy: PolicySummary { snapshot?.policy ?? .standard }
 
     /// The allowance the UI should show as selected, including one still being applied.
@@ -136,7 +140,8 @@ final class AppModel {
     func requestAuthorization() async {
         guard authorizationRequest != .requesting else { return }
         // A decided state is never prompted again; the UI offers iOS Settings instead.
-        guard snapshot?.authorization == .notDetermined || snapshot == nil else { return }
+        guard snapshot?.authorization == .notDetermined || snapshot == nil
+              || canRefreshExistingAuthorization else { return }
         authorizationRequest = .requesting
         do {
             snapshot = try await service.requestAuthorization()

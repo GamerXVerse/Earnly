@@ -60,32 +60,148 @@ struct NativeScreenTimeTests {
         }
     }
 
-    @Test func fullSecondAllowanceUsesNewGenerationAndOnePersistedCredit() async throws {
+    @Test func coldLaunchRefreshKeepsBackgroundShieldUntilPracticeIsCompleted() async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (_, original) = try fixture.open()
+        try await fixture.configure(original)
+        let first = try fixture.registration()
+        try fixture.threshold(first)
+
+        // Model a fresh AuthorizationCenter before the OS refresh completes.
+        await fixture.authorization.setAuthorization(.notDetermined)
+        await fixture.authorization.failNext(.authorization)
+        let (reopened, restarted) = try fixture.open()
+        try await restarted.activate()
+        #expect(await reopened.dashboard().authorization == .unavailable)
+        #expect(try fixture.registration().threshold != nil)
+        #expect(fixture.backend.shieldStatus() == .applied)
+
+        // A new launch with successful authorization reuses the original receipt.
+        let (recovered, relaunched) = try fixture.open()
+        try await relaunched.activate()
+        try await relaunched.activate()
+        #expect(try fixture.registration().cycleID == first.cycleID)
+        #expect(await relaunched.dashboard().monitoring == .shielded)
+        #expect(await recovered.dashboard().restriction == .restricted)
+        #expect(await recovered.rewardLedger().transactions.isEmpty)
+
+        let completed = try await fixture.complete(recovered)
+        _ = try await relaunched.finishPractice(sessionID: completed.id)
+        #expect(try fixture.registration().cycleID != first.cycleID)
+        #expect(fixture.backend.shieldStatus() == .clear)
+        #expect(await recovered.rewardLedger().transactions.count == 1)
+    }
+
+    @Test func changingSettingsCannotDiscardAnUnreconciledThreshold() async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (_, coordinator) = try fixture.open()
+        try await fixture.configure(coordinator)
+        let first = try fixture.registration()
+        try fixture.threshold(first)
+
+        await #expect(throws: LifecycleError.configurationLocked) {
+            try await coordinator.configure(policy: .standard, selection: fixture.selection)
+        }
+        #expect(try fixture.registration().cycleID == first.cycleID)
+        #expect(fixture.backend.shieldStatus() == .applied)
+        try await coordinator.activate()
+        #expect(await coordinator.dashboard().monitoring == .shielded)
+    }
+
+    @Test(arguments: [InitialAllowance.one, .five, .ten, .fifteen])
+    func warnsOnceForTheCurrentReleasedGeneration(_ allowance: InitialAllowance) async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (_, coordinator) = try fixture.open()
+        try await coordinator.configure(policy: .init(initialAllowance: allowance), selection: fixture.selection)
+        let first = try fixture.registration()
+        let leads: [InitialAllowance: Int] = [.one: 5, .five: 60, .ten: 120, .fifteen: 180]
+        #expect(try fixture.platform.claimWarning(activity: first.name, event: "unrelated") == nil)
+        #expect(try fixture.platform.claimWarning(activity: "stale", event: first.eventName) == nil)
+        #expect(try fixture.platform.claimWarning(activity: first.name, event: first.eventName) == leads[allowance])
+        #expect(try fixture.platform.claimWarning(activity: first.name, event: first.eventName) == nil)
+        try fixture.threshold(first)
+        #expect(try fixture.platform.claimWarning(activity: first.name, event: first.eventName) == nil)
+        #expect(fixture.backend.shieldStatus() == .applied)
+    }
+
+    @Test(arguments: [1, 10])
+    func reopensAndRepeatsEarnedAllowanceWithFreshUsage(_ minutesAndQuestions: Int) async throws {
+        let fixture = NativeFixture()
+        defer { fixture.remove() }
+        let (system, coordinator) = try fixture.open()
+        let policy = try ScreenTimePolicy(initialAllowance: .one, requiredQuestions: minutesAndQuestions,
+                                          rewardedMinutes: minutesAndQuestions)
+        try await coordinator.configure(policy: policy, selection: fixture.selection)
+        let first = try fixture.registration()
+        let firstCycle = try #require(await system.currentCycle())
+
+        // Deliver usage only while the selected app is reported as foreground.
+        #expect(try fixture.useSelectedApp(first, seconds: 30) == false)
+        fixture.clock.advance(seconds: 600)
+        #expect(fixture.backend.shieldStatus() == .clear)
+        #expect(try fixture.useSelectedApp(first, seconds: 30))
+        try await coordinator.activate()
+        var current = first
+
+        for rewardCount in 1...2 {
+            let session = try await fixture.complete(system)
+            #expect(session.attempts.count == minutesAndQuestions)
+            let credit = try await coordinator.finishPractice(sessionID: session.id)
+            #expect(credit.earnedMinutes == minutesAndQuestions)
+            #expect(credit.activatedAt != nil)
+
+            let next = try fixture.registration()
+            #expect(next.cycleID != current.cycleID)
+            #expect(next.minutes == minutesAndQuestions)
+            #expect(fixture.backend.registrationCount == 1)
+            #expect(try fixture.threshold(current) == false)
+            let (reopened, relaunched) = try fixture.open()
+            try await relaunched.activate()
+            let activeCycle = try #require(await reopened.currentCycle())
+            #expect(activeCycle.id != firstCycle.id)
+            #expect(await relaunched.dashboard().monitoring == .registered(activeCycle))
+
+            let seconds = minutesAndQuestions * 60
+            #expect(try fixture.useSelectedApp(next, seconds: seconds / 2) == false)
+            fixture.clock.advance(seconds: 900)
+            #expect(fixture.backend.shieldStatus() == .clear)
+            #expect(try fixture.useSelectedApp(next, seconds: seconds / 2))
+            // The extension re-applies the shield before the host reconciles the receipt.
+            #expect(fixture.backend.shieldStatus() == .applied)
+            try await coordinator.activate()
+            #expect(await coordinator.dashboard().monitoring == .shielded)
+            #expect(await system.rewardLedger().transactions.count == rewardCount)
+            #expect(try await coordinator.finishPractice(sessionID: session.id).consumedAtLeastMinutes == minutesAndQuestions)
+            current = next
+        }
+    }
+
+    @Test func losingRegistrationDuringShieldReleaseKeepsCreditUnactivated() async throws {
         let fixture = NativeFixture()
         defer { fixture.remove() }
         let (system, coordinator) = try fixture.open()
         try await fixture.configure(coordinator)
-        let first = try fixture.registration()
-        try fixture.threshold(first)
-        try fixture.threshold(first)
-        #expect(fixture.backend.shieldStatus() == .applied)
+        try fixture.threshold(fixture.registration())
         try await coordinator.activate()
         let session = try await fixture.complete(system)
-        let credit = try await coordinator.finishPractice(sessionID: session.id)
-        #expect(credit.earnedMinutes == 10)
-        #expect(credit.activatedAt != nil)
 
-        let second = try fixture.registration()
-        #expect(second.name != first.name)
-        #expect(fixture.backend.registrationCount == 1)
-        try fixture.threshold(first)
-        #expect(fixture.backend.shieldStatus() == .clear)
-        try fixture.threshold(second)
-        try fixture.threshold(second)
-        try await coordinator.activate()
-        #expect(await coordinator.dashboard().monitoring == .shielded)
-        #expect(await system.rewardLedger().transactions.count == 1)
-        #expect(try await coordinator.finishPractice(sessionID: session.id).consumedAtLeastMinutes == 10)
+        fixture.backend.fail(.loseRegistrationOnClear)
+        await #expect(throws: ScreenTimeServiceError.monitoringInterrupted) {
+            try await coordinator.finishPractice(sessionID: session.id)
+        }
+        #expect(fixture.backend.shieldStatus() == .applied)
+        #expect(await coordinator.dashboard().monitoring == .interrupted)
+        #expect(await system.rewardLedger().transactions[session.id]?.activatedAt == nil)
+
+        let (reopened, relaunched) = try fixture.open()
+        try await relaunched.activate()
+        #expect(fixture.backend.registrationCount == 0)
+        #expect(fixture.backend.shieldStatus() == .applied)
+        #expect(await reopened.rewardLedger().transactions.count == 1)
+        #expect(await reopened.rewardLedger().transactions[session.id]?.activatedAt == nil)
     }
 
     @Test func registerAndReleaseFailuresKeepTheSameRewardAcrossRelaunch() async throws {
@@ -364,8 +480,15 @@ private struct NativeFixture {
         try #require(platform.journal.read().registration)
     }
 
-    func threshold(_ registration: MonitoringRegistration) throws {
+    @discardableResult
+    func threshold(_ registration: MonitoringRegistration) throws -> Bool {
         try platform.threshold(activity: registration.name, event: registration.eventName, reachedAt: clock.date)
+    }
+
+    func useSelectedApp(_ registration: MonitoringRegistration, seconds: Int) throws -> Bool {
+        clock.advance(seconds: TimeInterval(seconds))
+        guard backend.crossedThreshold(registration, using: seconds) else { return false }
+        return try threshold(registration)
     }
 
     func complete(_ system: EarnlySystem) async throws -> PracticeSession {
@@ -397,11 +520,12 @@ private final class NativeTestClock: @unchecked Sendable {
 }
 
 private final class FakeScreenTimeBackend: ScreenTimeBackend, @unchecked Sendable {
-    enum Failure: Hashable { case install, stop, clear }
+    enum Failure: Hashable { case install, stop, clear, loseRegistrationOnClear }
     private let lock = NSLock()
     private var registrations: [String: MonitoringRegistration] = [:]
     private var failed: Set<Failure> = []
     private var installs = 0
+    private var usageSeconds: [UUID: Int] = [:]
     private var shield: ShieldStatus = .clear
 
     var registrationCount: Int { lock.withLock { registrations.count } }
@@ -413,12 +537,24 @@ private final class FakeScreenTimeBackend: ScreenTimeBackend, @unchecked Sendabl
         try lock.withLock {
             if failed.remove(.install) != nil { throw ScreenTimeServiceError.monitoringFailed }
             registrations[registration.name] = registration
+            usageSeconds[registration.cycleID] = 0
             installs += 1
         }
     }
 
     func contains(_ registration: MonitoringRegistration, selection: StoredActivitySelection) -> Bool {
         lock.withLock { registrations[registration.name]?.cycleID == registration.cycleID }
+    }
+
+    func crossedThreshold(_ registration: MonitoringRegistration, using seconds: Int) -> Bool {
+        lock.withLock {
+            guard registrations[registration.name] != nil else { return false }
+            let previous = usageSeconds[registration.cycleID, default: 0]
+            let updated = previous + seconds
+            usageSeconds[registration.cycleID] = updated
+            let threshold = registration.minutes * 60
+            return previous < threshold && updated >= threshold
+        }
     }
 
     func stop(name: String) throws {
@@ -441,6 +577,7 @@ private final class FakeScreenTimeBackend: ScreenTimeBackend, @unchecked Sendabl
         try lock.withLock {
             if failed.remove(.clear) != nil { throw ScreenTimeServiceError.shieldingFailed }
             shield = .clear
+            if failed.remove(.loseRegistrationOnClear) != nil { registrations.removeAll() }
         }
     }
 

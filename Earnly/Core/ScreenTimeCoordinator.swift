@@ -24,6 +24,7 @@ actor ScreenTimeCoordinator {
     private let authorization: any ScreenTimeAuthorizing
     private let platform: GenerationScreenTime
     private var commandInProgress = false
+    private var attemptedLaunchAuthorizationRefresh = false
 
     init(system: EarnlySystem, authorization: any ScreenTimeAuthorizing, platform: GenerationScreenTime) {
         self.system = system
@@ -81,13 +82,30 @@ actor ScreenTimeCoordinator {
             throw error
         }
         try await reconcileAuthorization()
+        try await resumePendingWork()
         return await system.dashboard().authorization
     }
 
     func activate() async throws {
         try beginCommand()
         defer { commandInProgress = false }
-        try await reconcileAuthorization()
+        var status = await authorization.authorizationState()
+        if status == .notDetermined, !attemptedLaunchAuthorizationRefresh,
+           await system.isAwaitingAuthorizationRefresh() {
+            attemptedLaunchAuthorizationRefresh = true
+            do {
+                status = try await authorization.requestAuthorization()
+            } catch {
+                // A failed refresh can still publish a definitive denial. An unresolved
+                // result leaves the existing generation and its threshold receipt intact.
+                status = await authorization.authorizationState()
+            }
+        }
+        try await reconcileAuthorization(status: status)
+        try await resumePendingWork()
+    }
+
+    private func resumePendingWork() async throws {
         if let sessionID = await system.completedSessionAwaitingCredit() {
             _ = try await system.grantReward(for: sessionID)
         }
@@ -126,7 +144,9 @@ actor ScreenTimeCoordinator {
                 try await system.configure(policy: policy, selection: selection.summary)
             }
         } else {
-            if await system.currentCycle() != nil || (try? platform.journal.read().retiring) == true {
+            if let cycle = await system.currentCycle() {
+                try await disableWhileHoldingCommand(preservingThresholdFor: cycle.id)
+            } else if (try? platform.journal.read().retiring) == true {
                 try await disableWhileHoldingCommand()
             }
             try platform.prepareSelection(selection)
@@ -168,8 +188,8 @@ actor ScreenTimeCoordinator {
         try await disableWhileHoldingCommand()
     }
 
-    private func disableWhileHoldingCommand() async throws {
-        try platform.retire(clearSelection: true, leaveFence: true)
+    private func disableWhileHoldingCommand(preservingThresholdFor cycleID: UUID? = nil) async throws {
+        try platform.retire(clearSelection: true, leaveFence: true, preservingThresholdFor: cycleID)
         try await system.pauseScreenTime()
         try platform.finishRetirement(clearSelection: true)
     }
@@ -180,7 +200,10 @@ actor ScreenTimeCoordinator {
     }
 
     private func reconcileAuthorization() async throws {
-        let status = await authorization.authorizationState()
+        try await reconcileAuthorization(status: authorization.authorizationState())
+    }
+
+    private func reconcileAuthorization(status: AuthorizationState) async throws {
         try await system.handle(.authorizationChanged(status))
         let reconciled = await system.dashboard().authorization
         if reconciled == .revoked || reconciled == .denied {

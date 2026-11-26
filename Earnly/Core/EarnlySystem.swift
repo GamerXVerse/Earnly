@@ -53,6 +53,8 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
     public func rewardLedger() -> RewardLedger { state.ledger }
     public func currentCycle() -> UsageCycle? { state.lifecycle.stage.cycle }
 
+    func isAwaitingAuthorizationRefresh() -> Bool { awaitingAuthorizationRefresh }
+
     func completedSessionAwaitingCredit() -> UUID? {
         switch state.lifecycle.stage {
         case let .pending(_, sessionID): return sessionID
@@ -218,6 +220,9 @@ public actor EarnlySystem: PracticeSessionManaging, RewardManaging, ProfilePersi
     }
 
     private func handle(_ event: RestrictionEvent, at date: Date) throws {
+        // A new AuthorizationCenter starts at notDetermined, even for an approved installation.
+        // Wait for the refresh outcome before invalidating the selection or threshold receipt.
+        if awaitingAuthorizationRefresh, event == .authorizationChanged(.notDetermined) { return }
         var next = state
         if case let .authorizationChanged(status) = event, awaitingAuthorizationRefresh,
            status != .approved && status != .unavailable {

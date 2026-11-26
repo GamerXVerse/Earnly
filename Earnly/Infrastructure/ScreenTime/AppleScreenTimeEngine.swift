@@ -101,7 +101,11 @@ public struct AppleScreenTimeMonitorBridge: Sendable {
         )
     }
 
-    public func thresholdReached(activity: String, event: String) throws {
+    public func claimThresholdWarning(activity: String, event: String) throws -> Int? {
+        try platform.claimWarning(activity: activity, event: event)
+    }
+
+    public func thresholdReached(activity: String, event: String) throws -> Bool {
         try platform.threshold(activity: activity, event: event, reachedAt: Date())
     }
 

@@ -23,8 +23,15 @@ struct MonitoringStatus: Equatable {
         case .failed(.monitoringInterrupted): return .init(kind: .failed, text: "Monitoring was interrupted")
         case .failed(.shield): return .init(kind: .failed, text: "Couldn't update restrictions")
         case .failed: return .init(kind: .failed, text: "Monitoring failed to start")
-        case .available, .restricted, .practiceInProgress, .rewardPending:
+        case .available:
+            if let rewardMinutes = s.releasedRewardMinutes {
+                return .init(kind: .on, text: "Monitoring your \(rewardMinutes)-minute reward allowance")
+            }
             return .init(kind: .on, text: "Monitoring is on")
+        case .restricted, .practiceInProgress:
+            return .init(kind: .on, text: "Usage limit reached. Your selected apps are restricted.")
+        case .rewardPending:
+            return .init(kind: .pending, text: "Preparing the next allowance")
         }
     }
 }

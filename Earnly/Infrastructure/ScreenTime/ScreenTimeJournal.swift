@@ -39,10 +39,15 @@ struct MonitoringRegistration: Codable, Equatable, Sendable {
     var threshold: UsageThresholdEvent?
     var thresholdAcknowledged = false
     var expired = false
+    var warningIssued: Bool?
 
     static let namespace = "earnly.allowance."
     var name: String { Self.namespace + cycleID.uuidString }
     var eventName: String { name + ".threshold" }
+
+    var warningLeadSeconds: Int {
+        minutes == 1 ? 5 : min(minutes, 15) * 12
+    }
 }
 
 struct ScreenTimeRecord: Codable, Equatable, Sendable {

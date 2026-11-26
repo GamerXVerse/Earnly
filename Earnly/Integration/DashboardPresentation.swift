@@ -165,7 +165,8 @@ struct DashboardPresentation: Equatable {
             if let minutes = s.releasedRewardMinutes {
                 return .init(
                     state: .rewardEarned, title: "\(minutes) minutes earned",
-                    detail: "Your selected apps are available again.", tone: .success,
+                    detail: "Your selected apps are available again. iOS is tracking use toward your new allowance.",
+                    tone: .success,
                     hero: Hero(overline: "Time earned", value: "+\(minutes) min",
                                caption: "Access restored.", isMeasured: false))
             }

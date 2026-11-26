@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct ExamPreferencesView: View {
     @Environment(AppModel.self) private var model
@@ -164,6 +165,11 @@ struct MonitoringControlsView: View {
                     kind: status.kind == .on ? .success : (status.kind == .pending ? .info : .warning),
                     title: "Status", text: status.text)
 
+                if !model.isSimulated {
+                    AllowanceNotificationsView()
+                    EarnlyDivider()
+                }
+
                 VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
                     Text("Turn off restrictions").font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
                     Text("Removes Earnly's restrictions and stops monitoring. Your earned time and history are kept. To turn Earnly back on, you'll choose your apps again.")
@@ -203,6 +209,55 @@ struct MonitoringControlsView: View {
         case .failed(let failure):
             EarnlyStatusMessage(kind: .warning, title: "Couldn't finish turning off restrictions", text: failure.userMessage)
         }
+    }
+}
+
+private struct AllowanceNotificationsView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
+    @State private var authorization: UNAuthorizationStatus?
+    @State private var isRequesting = false
+    @State private var requestFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: EarnlySpacing.xs) {
+            Text("Allowance warnings").font(EarnlyFont.sectionHeading).foregroundStyle(EarnlyColor.ink)
+            Text("Earnly can send an iPhone notification when Screen Time reports that your allowance is nearly used.")
+                .font(EarnlyFont.secondary).foregroundStyle(EarnlyColor.inkSecondary)
+            if authorization == .notDetermined {
+                EarnlyButton(title: "Enable notifications", kind: .secondary) {
+                    Task { await requestPermission() }
+                }
+                .disabled(isRequesting)
+            } else if authorization != nil {
+                EarnlyButton(title: "Notification settings", kind: .secondary) {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                }
+            }
+            if requestFailed {
+                EarnlyStatusMessage(kind: .warning, text: "Couldn’t request notification access. Try again.")
+            }
+        }
+        .task(id: scenePhase) {
+            if scenePhase == .active { await refreshPermission() }
+        }
+    }
+
+    private func refreshPermission() async {
+        authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    private func requestPermission() async {
+        guard !isRequesting else { return }
+        isRequesting = true
+        defer { isRequesting = false }
+        do {
+            _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert])
+            requestFailed = false
+        } catch {
+            requestFailed = true
+        }
+        await refreshPermission()
     }
 }
 

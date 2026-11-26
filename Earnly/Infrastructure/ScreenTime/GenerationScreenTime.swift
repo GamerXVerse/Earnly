@@ -66,6 +66,7 @@ struct GenerationScreenTime: Sendable {
               try backend.contains(registration, selection: selection) else {
             throw ScreenTimeServiceError.monitoringInterrupted
         }
+        if registration.releaseConfirmed { return }
 
         // Journal the intent before touching the store. A threshold in this gap will
         // interrupt release, preserving the credit while preventing an automatic reset.
@@ -96,6 +97,15 @@ struct GenerationScreenTime: Sendable {
             active.releaseConfirmed = true
             record.registration = active
         }
+
+        // Verify the same OS event after clearing the shield, before the host activates
+        // the credit. A receipted threshold is also valid evidence if it arrived meanwhile.
+        if (try? backend.contains(registration, selection: selection)) != true {
+            let current = try? journal.read().registration
+            guard current?.cycleID == cycleID, current?.threshold != nil else {
+                throw ScreenTimeServiceError.monitoringInterrupted
+            }
+        }
     }
 
     func apply(selection: ActivitySelection, cycleID: UUID) throws {
@@ -111,7 +121,20 @@ struct GenerationScreenTime: Sendable {
         }
     }
 
-    func threshold(activity: String, event: String, reachedAt: Date) throws {
+    func claimWarning(activity: String, event: String) throws -> Int? {
+        try journal.update { record in
+            guard !record.retiring, var active = record.registration,
+                  active.name == activity, active.eventName == event, active.releaseConfirmed,
+                  active.threshold == nil, !active.expired, now() < active.end,
+                  active.warningIssued != true else { return nil }
+            active.warningIssued = true
+            record.registration = active
+            return active.warningLeadSeconds
+        }
+    }
+
+    @discardableResult
+    func threshold(activity: String, event: String, reachedAt: Date) throws -> Bool {
         let cycleID = try journal.update { record -> UUID? in
             guard !record.retiring, var active = record.registration, !active.expired,
                   active.name == activity, active.eventName == event else { return nil }
@@ -122,7 +145,9 @@ struct GenerationScreenTime: Sendable {
             return active.cycleID
         }
         // Keep the receipt if the process dies or applying the store fails.
-        if let cycleID { try reconcileThresholdShield(cycleID: cycleID) }
+        guard let cycleID else { return false }
+        try reconcileThresholdShield(cycleID: cycleID)
+        return true
     }
 
     func reconcileThresholdShield(cycleID: UUID) throws {
@@ -161,9 +186,15 @@ struct GenerationScreenTime: Sendable {
     }
 
     /// Fence callbacks before stopping registrations. Retain the marker until both effects succeed.
-    func retire(clearSelection: Bool, leaveFence: Bool = false) throws {
+    func retire(clearSelection: Bool, leaveFence: Bool = false, preservingThresholdFor cycleID: UUID? = nil) throws {
         do {
-            try journal.update { $0.retiring = true }
+            try journal.update { record in
+                if let cycleID, let registration = record.registration,
+                   registration.cycleID == cycleID, registration.threshold != nil {
+                    throw LifecycleError.configurationLocked
+                }
+                record.retiring = true
+            }
         } catch let error as ScreenTimePersistenceError {
             // A corrupt or unknown record is already unreadable to callbacks. Clear our store
             // even so, preserving the original bytes and keeping reconfiguration blocked.

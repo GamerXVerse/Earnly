@@ -42,8 +42,12 @@ struct AuthorizationStatusView: View {
             EarnlyStatusMessage(kind: .warning, title: "Access was turned off",
                                 text: "Earnly stopped managing your apps. Turn access back on in iOS Settings, then choose your apps again.")
         case .unavailable:
-            EarnlyStatusMessage(kind: .warning, title: "Screen Time isn't available",
-                                text: "Native monitoring needs a configured iPhone running iOS 17.4 or later.")
+            EarnlyStatusMessage(
+                kind: .warning, title: "Screen Time isn't available",
+                text: model.canRefreshExistingAuthorization
+                    ? "Refresh Screen Time access to restore your saved setup."
+                    : "Native monitoring needs a configured iPhone running iOS 17.4 or later."
+            )
         case .failed(let message):
             EarnlyStatusMessage(kind: .warning, title: "Something went wrong", text: message)
         }
@@ -78,7 +82,13 @@ struct AuthorizationAction: View {
             EarnlyButton(title: "Open iOS Settings", kind: .secondary) {
                 if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
             }
-        case .unavailable, .authorized:
+        case .unavailable:
+            if model.canRefreshExistingAuthorization {
+                EarnlyButton(title: "Refresh Screen Time access", kind: .secondary) {
+                    Task { await model.requestAuthorization() }
+                }
+            }
+        case .authorized:
             EmptyView()
         }
     }

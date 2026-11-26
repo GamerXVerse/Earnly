@@ -97,6 +97,7 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
             try DeviceActivityCenter().startMonitoring(
                 .init(registration.name), during: schedule, events: [.init(registration.eventName): event]
             )
+            Self.logger.notice("Registered an allowance with a \(registration.minutes, privacy: .public)-minute usage threshold")
         } catch let error as DeviceActivityCenter.MonitoringError {
             let reason: String
             switch error {
@@ -189,7 +190,9 @@ struct AppleScreenTimeBackend: ScreenTimeBackend {
         return DeviceActivitySchedule(
             intervalStart: calendar.dateComponents(fields, from: registration.start),
             intervalEnd: calendar.dateComponents(fields, from: registration.end),
-            repeats: false
+            repeats: false,
+            warningTime: DateComponents(minute: registration.warningLeadSeconds / 60,
+                                        second: registration.warningLeadSeconds % 60)
         )
     }
 }
