@@ -8,7 +8,6 @@ configFiles:
   Debug: Config/Earnly.xcconfig
   Release: Config/Earnly.xcconfig
 options:
-  bundleIdPrefix: com.earnly
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -35,12 +34,16 @@ targets:
       - target: EarnlyShieldAction
         embed: true
     settings:
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "$(inherited)"
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID)
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: Config/Earnly-Info.plist
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
         SUPPORTS_MACCATALYST: NO
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
         INFOPLIST_KEY_CFBundleDisplayName: Earnly
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
@@ -59,7 +62,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app.tests
   EarnlyUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -70,12 +73,14 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app.uitests
 schemes:
   Earnly:
     build:
       targets:
         Earnly: all
+    archive:
+      config: Release
     test:
       targets:
         - EarnlyTests

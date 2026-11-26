@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>$(EARNLY_APP_GROUP_ID)</string>
+		<string>group.com.earnly-testing-secure.app</string>
 	</array>
 </dict>
 </plist>

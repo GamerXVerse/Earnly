@@ -1,4 +1,6 @@
-// The frontend's existing bundle identifier. Use registered IDs for signed builds.
-EARNLY_HOST_BUNDLE_ID = com.earnly.app
-EARNLY_APP_GROUP_ID =
+// Optional team selection for local development. Xcode Cloud supplies its signing team.
 #include? "Signing.local.xcconfig"
+
+// Runtime metadata for the host and extensions that use the shared container.
+EARNLY_HOST_BUNDLE_ID = com.earnly-testing-secure.app
+EARNLY_APP_GROUP_ID = group.com.earnly-testing-secure.app

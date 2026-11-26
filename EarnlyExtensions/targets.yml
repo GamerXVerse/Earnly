@@ -23,7 +23,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: EarnlyExtensions/DeviceActivityMonitor/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).DeviceActivityMonitor
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app.DeviceActivityMonitor
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
 
   EarnlyShieldConfiguration:
@@ -38,7 +38,7 @@ targets:
       base:
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": EarnlyExtensions/FamilyControlsAppGroup.entitlements
         INFOPLIST_FILE: EarnlyExtensions/ShieldConfiguration/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).ShieldConfiguration
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app.ShieldConfiguration
 
   EarnlyShieldAction:
     templates: [EarnlyScreenTimeExtension]
@@ -48,4 +48,4 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: EarnlyExtensions/ShieldAction/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: $(EARNLY_HOST_BUNDLE_ID).ShieldAction
+        PRODUCT_BUNDLE_IDENTIFIER: com.earnly-testing-secure.app.ShieldAction
